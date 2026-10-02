@@ -249,6 +249,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         AudioPipe.shared.onRouteChanged = { [weak self] _ in
             self?.updateStatus()
         }
+        // Show the persisted remote label even when no connection event arrives.
+        updateStatus()
 
         DispatchQueue.main.async { [weak self] in
             self?.debugWindow.show()
@@ -437,12 +439,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func updateStatus() {
+        let remoteName = RemoteDisplayName.displayName()
         let anyHID = x6HIDConnected || chromecastHIDConnected
         let anyBLE = x6BLEConnected || chromecastBLEConnected
         let doubaoSnapshot = doubaoAudioState.snapshotNow()
         let statusText: String
         if !anyHID && !anyBLE {
-            statusText = L10n.text("等待 Chromecast 遥控器", "Waiting for Chromecast")
+            statusText = L10n.text("等待遥控器连接", "Waiting for remote connection")
         } else if !anyHID || !anyBLE {
             statusText = L10n.text("正在连接语音 / 按键通道", "Connecting voice / buttons")
         } else if !voiceStatus.isEmpty {
@@ -450,8 +453,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else {
             statusText = L10n.text("已就绪", "Ready")
         }
-        statusItem.button?.toolTip = "vRemoter · \(statusText)"
-        headerLabel.title = L10n.text("状态 · \(statusText)", "Status · \(statusText)")
+        statusItem.button?.toolTip = "vRemoter · \(remoteName) · \(statusText)"
+        headerLabel.title = "\(remoteName) · \(statusText)"
         debugWindow.update(
             status: statusText,
             hidConnected: anyHID,
@@ -470,6 +473,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func wireDebugWindow() {
+        debugWindow.onRemoteDisplayNameChanged = { [weak self] in self?.updateStatus() }
         debugWindow.onStopMicrophone = { [weak self] in
             self?.stopMicrophoneNow()
         }

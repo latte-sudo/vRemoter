@@ -37,17 +37,39 @@ struct ChromecastArchiveTests {
         try rejects([AppAppearance.key: "unknown"])
         try rejects([AppAppearance.key: true])
         try rejects([AppAppearance.key: Data()])
+        for name in ["客厅遥控器 🎤", "  Office remote  ", "", " \n ", String(repeating: "🎤", count: 64)] {
+            let values = try ChromecastSettingsArchive.validate(archive([RemoteDisplayName.key: name]))
+            precondition(values[RemoteDisplayName.key] as? String == name)
+        }
+        let invalidNames: [Any] = [true, 7, Data(), "bad\nname", "bad\u{202E}name", String(repeating: "a", count: 65)]
+        for invalid in invalidNames {
+            try rejects([RemoteDisplayName.key: invalid])
+        }
         let original = ChromecastSettingsArchive.snapshot()
         defer { ChromecastSettingsArchive.restore(original) }
         DockVisibilityPreference.setVisible(true)
         AppAppearance.set(.dark)
+        try RemoteDisplayName.set("客厅遥控器 🎤")
         let exported = try ChromecastSettingsArchive.validate(ChromecastSettingsArchive.exportData())
+        precondition(exported[RemoteDisplayName.key] as? String == "客厅遥控器 🎤")
         ChromecastSettingsArchive.restore([:])
         precondition(!DockVisibilityPreference.isVisible())
         precondition(AppAppearance.selected() == .system)
+        precondition(RemoteDisplayName.displayName() == RemoteDisplayName.defaultName)
         ChromecastSettingsArchive.restore(exported)
         precondition(DockVisibilityPreference.isVisible())
         precondition(AppAppearance.selected() == .dark)
+        precondition(RemoteDisplayName.displayName() == "客厅遥控器 🎤", "undo/import restores the saved name")
+        // Legacy v1 archives omit the optional alias; replacing settings clears it.
+        ChromecastSettingsArchive.restore(try ChromecastSettingsArchive.validate(archive([:])))
+        precondition(RemoteDisplayName.displayName() == RemoteDisplayName.defaultName)
+        for (raw, expected) in [("  Office remote  ", "Office remote"), (" \n ", RemoteDisplayName.defaultName)] {
+            ChromecastSettingsArchive.restore(try ChromecastSettingsArchive.validate(archive([RemoteDisplayName.key: raw])))
+            precondition(RemoteDisplayName.displayName() == expected)
+        }
+        try RemoteDisplayName.set("Keep on rejected import")
+        try rejects([RemoteDisplayName.key: "bad\nname"])
+        precondition(RemoteDisplayName.displayName() == "Keep on rejected import")
         // Both new action kinds survive real export, restore, and undo. Each
         // restore must also notify held-action owners to stop old timers.
         let mappingStore = RemoteMappingStore.shared

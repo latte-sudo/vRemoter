@@ -14,6 +14,15 @@ enum PermissionKind: String, Identifiable, CaseIterable {
 
     var id: String { rawValue }
 
+    var requestablePermission: RequestablePermission? {
+        switch self {
+        case .bluetooth: .bluetooth
+        case .accessibility: .accessibility
+        case .inputMonitoring: .inputMonitoring
+        case .doubaoInput, .microphone: nil
+        }
+    }
+
     var title: String {
         switch self {
         case .doubaoInput: L10n.text("豆包麦克风设置", "Doubao Microphone Setup")
@@ -249,6 +258,8 @@ final class ConsoleViewModel: ObservableObject {
         "--mapping-window-demo"
     ) ? .mapping : .mixer
     @Published var status = "启动中"
+    @Published private(set) var remoteDisplayName = RemoteDisplayName.displayName()
+    var onRemoteDisplayNameChanged: (() -> Void)?
     @Published var hidConnected = false
     @Published var bleConnected = false
     @Published var remoteStreaming = false
@@ -282,6 +293,7 @@ final class ConsoleViewModel: ObservableObject {
     )
 
     private var donationPromptShownInSession = false
+    private let permissionRequester = MacPermissionRequester()
 
     var onStopMicrophone: (() -> Void)?
     var onRestartApp: (() -> Void)?
@@ -293,6 +305,13 @@ final class ConsoleViewModel: ObservableObject {
     var doubaoUsesVRemote: Bool { doubaoInput.contains("vRemoteDr 2ch") }
     var macSolo: Bool { macInputEnabled && !remoteInputEnabled }
     var remoteSolo: Bool { remoteInputEnabled && !macInputEnabled }
+
+    func refreshRemoteDisplayName() {
+        let name = RemoteDisplayName.displayName()
+        guard remoteDisplayName != name else { return }
+        remoteDisplayName = name
+        onRemoteDisplayNameChanged?()
+    }
 
     func setInputTrigger(_ trigger: InputTriggerKey) {
         guard inputTriggerKey != trigger else { return }
@@ -362,6 +381,38 @@ final class ConsoleViewModel: ObservableObject {
             bluetoothPermissionStatus = "无需单独授权"
         }
         evaluateDonationPrompt()
+    }
+
+    func requestPermission(for kind: PermissionKind) -> String {
+        guard let permission = kind.requestablePermission else {
+            return L10n.text("当前版本无需为此功能申请权限。", "This release does not need to request this permission.")
+        }
+        let result = permissionRequester.request(permission)
+        refreshPermissions()
+        switch result {
+        case .alreadyGranted:
+            return L10n.text("\(kind.title)：已授权。", "\(kind.title): already authorized.")
+        case .requested:
+            return L10n.text(
+                "\(kind.title)：已向系统发起申请。请完成系统提示；若没有弹窗或此前已拒绝，请点“打开设置”手动开启，再重新检查。",
+                "\(kind.title): requested from macOS. Complete the system prompt. If no prompt appears or access was previously denied, use Open Settings, enable access, then check again."
+            )
+        case .openSettings:
+            return L10n.text(
+                "\(kind.title)：已拒绝或本次运行已申请。请完成仍在等待的系统提示，或点“打开设置”手动开启；重复点击不会重复申请。",
+                "\(kind.title): denied or already requested in this session. Complete any pending system prompt or use Open Settings to enable access. Repeated clicks do not request again."
+            )
+        case .restricted:
+            return L10n.text(
+                "\(kind.title)：受到系统策略限制，无法通过再次申请解除。请检查系统设置或联系设备管理员。",
+                "\(kind.title): restricted by system policy. Another request cannot remove the restriction. Check System Settings or contact your device administrator."
+            )
+        case .unavailable:
+            return L10n.text(
+                "\(kind.title)：系统返回未知状态，请打开设置检查。",
+                "\(kind.title): macOS returned an unknown state. Open Settings to check."
+            )
+        }
     }
 
     func openSettings(for kind: PermissionKind) {
@@ -461,6 +512,7 @@ final class DebugWindowController: NSWindowController, NSWindowDelegate {
     private static let windowSize = NSSize(width: 980, height: 760)
 
     var onStopMicrophone: (() -> Void)?
+    var onRemoteDisplayNameChanged: (() -> Void)?
     var onVoiceConfigurationChanged: (() -> Void)?
     var onReconnectInputs: (() -> Void)?
     var onRestartApp: (() -> Void)?
@@ -494,6 +546,7 @@ final class DebugWindowController: NSWindowController, NSWindowDelegate {
         window.delegate = self
 
         model.onReconnectInputs = { [weak self] in self?.onReconnectInputs?() }
+        model.onRemoteDisplayNameChanged = { [weak self] in self?.onRemoteDisplayNameChanged?() }
         model.onVoiceConfigurationChanged = { [weak self] in self?.onVoiceConfigurationChanged?() }
         model.onStopMicrophone = { [weak self] in self?.onStopMicrophone?() }
         model.onRestartApp = { [weak self] in self?.onRestartApp?() }

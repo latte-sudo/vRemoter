@@ -11,6 +11,7 @@ struct ChromecastConsoleView: View {
     @State private var routeRevision = 0
     @State private var routeFingerprint = ""
     @State private var message = ""
+    @State private var remoteNameDraft = RemoteDisplayName.alias()
     @State private var launchingVoiceApplication = false
     @State private var testText = ""
     @State private var testAudioBaseline = 0
@@ -21,6 +22,7 @@ struct ChromecastConsoleView: View {
     @State private var selectedGesture: RemoteButtonGesture?
     @State private var editorRevision = 0
     @State private var permissionCheckResult = "尚未重新检查"
+    @State private var permissionRequestResult = ""
     @ObservedObject private var mappingStore = RemoteMappingStore.shared
     private let steps = ["欢迎", "连接遥控器", "权限", "音频通道", "语音工具", "实际说话测试", "普通按键", "完成"]
     private var audio: AudioPipe { AudioPipe.shared }
@@ -30,7 +32,8 @@ struct ChromecastConsoleView: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
                 VStack(alignment: .leading) {
-                    Text("vRemoter · Chromecast").font(.title2).bold()
+                    Text("vRemoter · \(model.remoteDisplayName)").font(.title2).bold()
+                        .lineLimit(1).truncationMode(.tail).help(model.remoteDisplayName)
                     Text(model.status).foregroundColor(.secondary)
                 }
                 Spacer()
@@ -154,7 +157,9 @@ struct ChromecastConsoleView: View {
     }
     private var connection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Chromecast Voice Remote").font(.headline)
+            Text(model.remoteDisplayName).font(.headline)
+                .lineLimit(2).help(model.remoteDisplayName).textSelection(.enabled)
+            Text("型号：Chromecast Voice Remote").font(.caption).foregroundColor(.secondary)
             Text("在系统蓝牙设置里配对遥控器。连接后会自动接入语音服务；断开连接会停止本次说话并释放快捷键。")
             Label(model.hidConnected ? "按键通道已连接" : "等待按键通道", systemImage: model.hidConnected ? "checkmark.circle" : "circle")
             Label(model.bleConnected ? "语音通道已连接" : "等待语音通道", systemImage: model.bleConnected ? "checkmark.circle" : "circle")
@@ -173,10 +178,14 @@ struct ChromecastConsoleView: View {
                 Button("重新连接遥控器") { model.onReconnectInputs?() }.disabled(model.voiceActive)
             }
             Text(permissionCheckResult).font(.callout)
+            if !permissionRequestResult.isEmpty {
+                Text(permissionRequestResult).font(.callout).textSelection(.enabled)
+            }
             if let checked = model.permissionCheckedAt {
                 Text("上次检查：\(checked.formatted(date: .abbreviated, time: .standard))").font(.caption).foregroundColor(.secondary)
             }
             Text("修改系统权限后，请返回这里重新检查；重新连接只重试遥控器通道，不会授予权限。").font(.caption)
+            Text("“请求权限”会发起系统申请。若列表中没有 App，可在提供“＋”的设置页面添加打包后的 vRemote.app；请从固定位置运行该 App。").font(.caption)
         }
     }
     private func permissionRow(_ title: String, granted: Bool, status: String, kind: PermissionKind) -> some View {
@@ -185,6 +194,10 @@ struct ChromecastConsoleView: View {
             Spacer()
             Text(status).fontWeight(.medium)
                 .foregroundColor(granted ? .green : .orange)
+            if !granted, kind.requestablePermission != nil {
+                Button("请求权限") { permissionRequestResult = model.requestPermission(for: kind) }
+                    .disabled(model.voiceActive)
+            }
             Button("打开设置") { model.openSettings(for: kind) }
         }
         .accessibilityElement(children: .contain)
@@ -192,7 +205,7 @@ struct ChromecastConsoleView: View {
     private var audioSettings: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("音频通道").font(.headline)
-            Text("声音来源：Chromecast 遥控器 → 虚拟音频设备 → 语音工具")
+            Text("声音来源：\(model.remoteDisplayName) → 虚拟音频设备 → 语音工具")
             Picker("输出到虚拟设备", selection: Binding(get: { audio.selectedOutputUID ?? "" }, set: {
                 _ = audio.selectOutputRoute(uid: $0.isEmpty ? nil : $0); invalidateTest(); routeRevision += 1
             })) {
@@ -290,6 +303,8 @@ struct ChromecastConsoleView: View {
                     .toggleStyle(.switch)
                 Spacer()
             }
+            Text("遥控器：\(model.remoteDisplayName)").font(.callout)
+                .lineLimit(2).help(model.remoteDisplayName)
             Divider()
             ChromecastMappingCanvas(selectedButton: selectedButton, selectedGesture: selectedGesture,
                 observedButton: model.lastButtonID, voiceActive: model.voiceActive,
@@ -329,6 +344,8 @@ struct ChromecastConsoleView: View {
     private var settings: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("设置与诊断").font(.headline)
+            remoteNameSettings
+            Divider()
             Picker(L10n.text("外观主题", "Appearance"), selection: Binding(
                 get: { AppAppearance.selected() },
                 set: { preference in
@@ -368,8 +385,53 @@ struct ChromecastConsoleView: View {
             Button("重新进行首次引导") { beginSetup() }.disabled(model.voiceActive)
             Button("停止音频并重新检查") { model.onStopMicrophone?(); model.refreshPermissions(); audio.refreshOutputRoutes(); routeRevision += 1 }
             Text("诊断：HID \(model.hidConnected ? "已连接" : "未连接") · BLE \(model.bleConnected ? "已连接" : "未连接") · 音频数据 \(model.receivedAudioPackets) · 完成会话 \(model.completedVoiceSessions)").textSelection(.enabled)
-            Text("导入仅接受 Chromecast v1 配置，不会导入权限、日志、录音、设备配对或登录项。系统权限和驱动需要在本机单独检查。").font(.caption)
+            Text("导入仅接受 Chromecast v1 配置，包含应用内遥控器名称，不会导入权限、日志、录音、设备配对或登录项。系统权限和驱动需要在本机单独检查。").font(.caption)
         }
+    }
+
+    private var remoteNameSettings: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("当前遥控器名称").font(.headline)
+            Text("当前显示：\(model.remoteDisplayName)").textSelection(.enabled)
+            HStack {
+                TextField(RemoteDisplayName.defaultName, text: $remoteNameDraft)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityLabel("应用内遥控器名称")
+                    .onSubmit { saveRemoteName() }
+                Button("保存名称") { saveRemoteName() }
+                    .disabled(!remoteNameValidationMessage.isEmpty)
+                Button("恢复默认名称") {
+                    RemoteDisplayName.reset()
+                    refreshRemoteName()
+                    message = "已恢复默认名称。"
+                }
+            }
+            Text("最多 \(RemoteDisplayName.maximumLength) 个字符；保存时去除首尾空白。留空并保存会恢复默认名称。").font(.caption)
+            if !remoteNameValidationMessage.isEmpty {
+                Text(remoteNameValidationMessage).font(.caption).foregroundColor(.orange)
+            }
+            Text("仅修改 vRemoter 内显示的名称，保存后立即生效并在重启后保留；不会修改 macOS 蓝牙设备名称。当前按 Chromecast 型号共用设置，名称不绑定某一只实体遥控器，也不用于区分或选择多只设备。")
+                .font(.caption).foregroundColor(.secondary)
+        }
+    }
+
+    private var remoteNameValidationMessage: String {
+        do { _ = try RemoteDisplayName.normalizedAlias(remoteNameDraft); return "" }
+        catch RemoteDisplayName.ValidationError.tooLong { return "名称过长，请缩短后再保存（最多 \(RemoteDisplayName.maximumLength) 个字符）。" }
+        catch { return "名称不能包含换行、控制字符或文字方向控制符。" }
+    }
+
+    private func saveRemoteName() {
+        do {
+            try RemoteDisplayName.set(remoteNameDraft)
+            refreshRemoteName()
+            message = RemoteDisplayName.alias().isEmpty ? "已恢复默认名称。" : "遥控器名称已保存。"
+        } catch { message = remoteNameValidationMessage }
+    }
+
+    private func refreshRemoteName() {
+        remoteNameDraft = RemoteDisplayName.alias()
+        model.refreshRemoteDisplayName()
     }
     private func checkPermissions() {
         model.refreshPermissions()
@@ -391,6 +453,7 @@ struct ChromecastConsoleView: View {
     }
     private func invalidateTest() { testArmed = false; confirmedSpeech = false; testText = "" }
     private func reloadConfiguration() {
+        refreshRemoteName()
         AppAppearanceController.apply(AppAppearance.selected())
         _ = DockVisibilityController.apply(DockVisibilityPreference.isVisible())
         configuration = AppStorage.voiceConfiguration

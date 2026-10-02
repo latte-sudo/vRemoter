@@ -6,7 +6,7 @@ enum ChromecastSettingsArchive {
     static let version = 1
     static let voiceKey = "voiceConfiguration.v1"
     static func allowed(_ key: String) -> Bool {
-        key == voiceKey || key == AppAppearance.key || key == DockVisibilityPreference.key || key == AppStorage.inputTriggerKeyKey ||
+        key == voiceKey || key == RemoteDisplayName.key || key == AppAppearance.key || key == DockVisibilityPreference.key || key == AppStorage.inputTriggerKeyKey ||
         key == AudioRouteConfiguration.selectedOutputUIDKey || key == AudioRouteConfiguration.remoteGainKey || key.hasPrefix("remoteMapping.chromecast.") ||
         key.hasPrefix("remoteCustomMapping.chromecast.") ||
         key.hasPrefix("remoteApplicationMapping.chromecast.") ||
@@ -17,7 +17,11 @@ enum ChromecastSettingsArchive {
     }
     static func restore(_ values: [String: Any]) {
         for key in snapshot().keys { UserDefaults.standard.removeObject(forKey: key) }
-        for (key, value) in values where allowed(key) { UserDefaults.standard.set(value, forKey: key) }
+        for (key, value) in values where allowed(key) {
+            if key == RemoteDisplayName.key {
+                if let raw = value as? String { try? RemoteDisplayName.set(raw) }
+            } else { UserDefaults.standard.set(value, forKey: key) }
+        }
         RemoteMappingStore.shared.reload()
     }
     static func exportData() throws -> Data {
@@ -35,6 +39,10 @@ enum ChromecastSettingsArchive {
             guard value is String || value is NSNumber || value is Data else { throw ArchiveError.invalid }
             if let text = value as? String, text.count > 4096 { throw ArchiveError.invalid }
             if let blob = value as? Data, blob.count > 16384 { throw ArchiveError.invalid }
+            if key == RemoteDisplayName.key {
+                guard let raw = value as? String,
+                      (try? RemoteDisplayName.normalizedAlias(raw)) != nil else { throw ArchiveError.invalid }
+            }
             if key == AppAppearance.key {
                 guard let raw = value as? String, AppAppearance(rawValue: raw) != nil else { throw ArchiveError.invalid }
             }

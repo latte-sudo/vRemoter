@@ -10,7 +10,10 @@
   missing or ambiguous
 - [ ] Decide how existing model-level mappings migrate to per-device profiles
   without losing custom settings, then test simultaneous devices and reconnects
+- [ ] Decide how to keep reconnection stable if the system Bluetooth name changes;
+  the current BLE saved-UUID path also validates the `Chromecast Remote` name hint
 
 This is recorded for later design and implementation only. The current change
-adds mapping actions and continuous scrolling; it does not implement multi-device
-pairing, host switching, identity binding or per-device profiles.
+adds mapping actions, continuous scrolling and an app-local display name; it does
+not implement multi-device pairing, host switching, identity binding, per-device
+profiles or system Bluetooth renaming. See [display-name scope](docs/REMOTE_DISPLAY_NAME.md).
