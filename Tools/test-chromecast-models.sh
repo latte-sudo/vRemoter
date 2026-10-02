@@ -6,6 +6,8 @@ swiftc Sources/vRemote/AudioRouteConfiguration.swift SelfTests/AudioRouteConfigu
 .build/chromecast-tests/audio
 swiftc Sources/vRemote/DockVisibility.swift SelfTests/DockVisibilityTests.swift -o .build/chromecast-tests/dock
 .build/chromecast-tests/dock
+swiftc Sources/vRemote/AppAppearance.swift SelfTests/AppAppearanceTests.swift -o .build/chromecast-tests/appearance
+.build/chromecast-tests/appearance
 bash Tools/run-gesture-tests.sh
 bash run-chromecast-voice-tests.sh
 bash Tools/test-voice-launcher.sh
@@ -13,6 +15,8 @@ bash Tools/test-voice-launcher.sh
 swiftc Sources/vRemote/OnboardingSpeechEvidence.swift SelfTests/OnboardingEvidenceTests.swift -o .build/chromecast-tests/onboarding
 .build/chromecast-tests/onboarding
 if [[ "$(uname -s)" == Darwin ]]; then
-  swiftc Sources/vRemote/RemoteButtonGestures.swift Sources/vRemote/RemoteMappingSupport.swift Sources/vRemote/AudioRouteConfiguration.swift Sources/vRemote/ChromecastVoiceStateMachine.swift Sources/vRemote/VoiceConfiguration.swift Sources/vRemote/DockVisibility.swift Sources/vRemote/ChromecastSettingsArchive.swift SelfTests/ChromecastArchiveTests.swift -o .build/chromecast-tests/archive
+  swiftc Sources/vRemote/AppAppearance.swift Sources/vRemote/AppAppearanceController.swift SelfTests/AppAppearanceControllerTests.swift -o .build/chromecast-tests/appearance-controller
+  .build/chromecast-tests/appearance-controller
+  swiftc Sources/vRemote/RemoteButtonGestures.swift Sources/vRemote/RemoteMappingSupport.swift Sources/vRemote/AudioRouteConfiguration.swift Sources/vRemote/ChromecastVoiceStateMachine.swift Sources/vRemote/VoiceConfiguration.swift Sources/vRemote/DockVisibility.swift Sources/vRemote/AppAppearance.swift Sources/vRemote/ChromecastSettingsArchive.swift SelfTests/ChromecastArchiveTests.swift -o .build/chromecast-tests/archive
   .build/chromecast-tests/archive
 fi

@@ -72,6 +72,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppStorage.prepare()
+        AppAppearanceController.apply(AppAppearance.selected())
         DockVisibilityController.apply(DockVisibilityPreference.isVisible())
         // This release intentionally supports only remote audio, including upgrades.
         AppStorage.macInputEnabled = false

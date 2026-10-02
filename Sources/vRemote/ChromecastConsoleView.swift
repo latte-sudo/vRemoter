@@ -356,6 +356,20 @@ struct ChromecastConsoleView: View {
     private var settings: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("设置与诊断").font(.headline)
+            Picker(L10n.text("外观主题", "Appearance"), selection: Binding(
+                get: { AppAppearance.selected() },
+                set: { preference in
+                    AppAppearance.set(preference)
+                    AppAppearanceController.apply(preference)
+                    routeRevision += 1
+                }
+            )) {
+                Text(L10n.text("跟随系统", "System")).tag(AppAppearance.system)
+                Text(L10n.text("浅色", "Light")).tag(AppAppearance.light)
+                Text(L10n.text("深色", "Dark")).tag(AppAppearance.dark)
+            }.pickerStyle(.segmented).id(routeRevision)
+            Text(L10n.text("立即生效；跟随系统会自动同步 macOS 外观。", "Applies immediately. System follows changes to macOS appearance."))
+                .font(.caption).foregroundColor(.secondary)
             Toggle("登录时启动", isOn: Binding(get: { LaunchAtLogin.isEnabled }, set: { enabled in
                 do { try LaunchAtLogin.setEnabled(enabled) } catch { message = error.localizedDescription }
                 routeRevision += 1
@@ -404,6 +418,7 @@ struct ChromecastConsoleView: View {
     }
     private func invalidateTest() { testArmed = false; confirmedSpeech = false; testText = "" }
     private func reloadConfiguration() {
+        AppAppearanceController.apply(AppAppearance.selected())
         _ = DockVisibilityController.apply(DockVisibilityPreference.isVisible())
         configuration = AppStorage.voiceConfiguration
         model.setRemoteMappingEnabled(RemoteMappingStore.shared.isEnabled(.chromecast), remote: .chromecast)

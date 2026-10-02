@@ -130,20 +130,21 @@ enum PermissionKind: String, Identifiable, CaseIterable {
 }
 
 private enum ConsoleTheme {
-    static let panel = Color(red: 0.055, green: 0.059, blue: 0.067)
-    static let surface = Color(red: 0.083, green: 0.091, blue: 0.103)
-    static let surface2 = Color(red: 0.102, green: 0.112, blue: 0.124)
-    static let line = Color(red: 0.22, green: 0.23, blue: 0.25)
-    static let lineSoft = Color(red: 0.15, green: 0.16, blue: 0.18)
-    static let text = Color(red: 0.93, green: 0.94, blue: 0.95)
-    static let secondary = Color(red: 0.55, green: 0.57, blue: 0.61)
-    static let tertiary = Color(red: 0.39, green: 0.41, blue: 0.45)
-    static let green = Color(red: 0.31, green: 0.82, blue: 0.53)
-    static let amber = Color(red: 0.96, green: 0.61, blue: 0.19)
-    static let amberDeep = Color(red: 0.16, green: 0.13, blue: 0.09)
-    static let red = Color(red: 0.94, green: 0.33, blue: 0.34)
-    static let redDeep = Color(red: 0.25, green: 0.08, blue: 0.09)
-    static let black = Color(red: 0.025, green: 0.028, blue: 0.032)
+    // Semantic colors retain contrast in light/dark and accessibility appearances.
+    static let panel = Color(nsColor: .windowBackgroundColor)
+    static let surface = Color(nsColor: .controlBackgroundColor)
+    static let surface2 = Color(nsColor: .quaternaryLabelColor)
+    static let line = Color(nsColor: .separatorColor)
+    static let lineSoft = Color(nsColor: .separatorColor)
+    static let text = Color(nsColor: .labelColor)
+    static let secondary = Color(nsColor: .secondaryLabelColor)
+    static let tertiary = Color(nsColor: .secondaryLabelColor)
+    static let green = Color(nsColor: .systemGreen)
+    static let amber = Color(nsColor: .systemOrange)
+    static let amberDeep = Color(nsColor: .systemOrange).opacity(0.12)
+    static let red = Color(nsColor: .systemRed)
+    static let redDeep = Color(nsColor: .systemRed).opacity(0.12)
+    static let black = Color(nsColor: .textBackgroundColor)
 }
 
 enum LogoAsset {
@@ -485,13 +486,8 @@ final class DebugWindowController: NSWindowController, NSWindowDelegate {
         window.isMovableByWindowBackground = true
         window.center()
         window.isReleasedWhenClosed = false
-        window.backgroundColor = NSColor(
-            red: 0.055,
-            green: 0.059,
-            blue: 0.067,
-            alpha: 1
-        )
-        window.appearance = NSAppearance(named: .darkAqua)
+        window.backgroundColor = .windowBackgroundColor
+        // Inherit the app's selected appearance, including automatic system changes.
         window.minSize = windowSize
         window.maxSize = windowSize
         super.init(window: window)
@@ -515,7 +511,6 @@ final class DebugWindowController: NSWindowController, NSWindowDelegate {
         }
         window.contentView = NSHostingView(
             rootView: ChromecastConsoleView(model: model)
-                .preferredColorScheme(.dark)
                 .frame(
                     width: windowSize.width,
                     height: windowSize.height
@@ -2294,7 +2289,7 @@ private struct ConsoleButtonStyle: ButtonStyle {
     private var background: Color {
         switch tone {
         case .neutral: ConsoleTheme.black
-        case .good: Color(red: 0.06, green: 0.25, blue: 0.16)
+        case .good: ConsoleTheme.green.opacity(0.12)
         case .warning: ConsoleTheme.amberDeep
         case .error: ConsoleTheme.redDeep
         }

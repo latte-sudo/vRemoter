@@ -354,19 +354,13 @@ final class UpdateWindowController: NSWindowController, NSWindowDelegate {
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
         window.isReleasedWhenClosed = false
-        window.backgroundColor = NSColor(
-            red: 0.055,
-            green: 0.059,
-            blue: 0.067,
-            alpha: 1
-        )
-        window.appearance = NSAppearance(named: .darkAqua)
+        window.backgroundColor = .windowBackgroundColor
+        // Inherit the app's selected appearance, including automatic system changes.
         window.minSize = size
         window.maxSize = size
         window.center()
         window.contentView = NSHostingView(
             rootView: VersionUpdateView(model: model)
-                .preferredColorScheme(.dark)
         )
         super.init(window: window)
         window.delegate = self
@@ -411,12 +405,12 @@ final class UpdateWindowController: NSWindowController, NSWindowDelegate {
 }
 
 private enum UpdateTheme {
-    static let panel = Color(red: 0.055, green: 0.059, blue: 0.067)
-    static let surface = Color(red: 0.085, green: 0.092, blue: 0.105)
-    static let line = Color(red: 0.20, green: 0.22, blue: 0.25)
-    static let text = Color(red: 0.94, green: 0.95, blue: 0.96)
-    static let secondary = Color(red: 0.57, green: 0.60, blue: 0.66)
-    static let green = Color(red: 0.30, green: 0.82, blue: 0.53)
+    static let panel = Color(nsColor: .windowBackgroundColor)
+    static let surface = Color(nsColor: .controlBackgroundColor)
+    static let line = Color(nsColor: .separatorColor)
+    static let text = Color(nsColor: .labelColor)
+    static let secondary = Color(nsColor: .secondaryLabelColor)
+    static let green = Color(nsColor: .systemGreen)
 }
 
 private struct VersionUpdateView: View {

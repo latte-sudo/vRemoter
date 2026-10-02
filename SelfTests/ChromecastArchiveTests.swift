@@ -24,14 +24,26 @@ struct ChromecastArchiveTests {
         _ = try ChromecastSettingsArchive.validate(archive([DockVisibilityPreference.key: true]))
         try rejects([DockVisibilityPreference.key: "true"])
         try rejects([DockVisibilityPreference.key: 2])
+        for appearance in AppAppearance.allCases {
+            _ = try ChromecastSettingsArchive.validate(archive([AppAppearance.key: appearance.rawValue]))
+        }
+        try rejects([AppAppearance.key: "unknown"])
+        try rejects([AppAppearance.key: true])
+        try rejects([AppAppearance.key: Data()])
         let original = ChromecastSettingsArchive.snapshot()
         defer { ChromecastSettingsArchive.restore(original) }
         DockVisibilityPreference.setVisible(true)
+        AppAppearance.set(.dark)
         let exported = try ChromecastSettingsArchive.validate(ChromecastSettingsArchive.exportData())
         ChromecastSettingsArchive.restore([:])
         precondition(!DockVisibilityPreference.isVisible())
+        precondition(AppAppearance.selected() == .system)
         ChromecastSettingsArchive.restore(exported)
         precondition(DockVisibilityPreference.isVisible())
+        precondition(AppAppearance.selected() == .dark)
+        // Archives made before the theme option existed still import as system.
+        ChromecastSettingsArchive.restore(try ChromecastSettingsArchive.validate(archive([DockVisibilityPreference.key: true])))
+        precondition(AppAppearance.selected() == .system)
         try rejects([:], version: 2)
         try rejects([:], device: "x6")
         try rejects(["unrelatedSetting": "oops"])

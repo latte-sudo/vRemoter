@@ -6,7 +6,7 @@ enum ChromecastSettingsArchive {
     static let version = 1
     static let voiceKey = "voiceConfiguration.v1"
     static func allowed(_ key: String) -> Bool {
-        key == voiceKey || key == DockVisibilityPreference.key || key == AppStorage.inputTriggerKeyKey ||
+        key == voiceKey || key == AppAppearance.key || key == DockVisibilityPreference.key || key == AppStorage.inputTriggerKeyKey ||
         key == AudioRouteConfiguration.selectedOutputUIDKey || key == AudioRouteConfiguration.remoteGainKey || key.hasPrefix("remoteMapping.chromecast.") ||
         key.hasPrefix("remoteCustomMapping.chromecast.") ||
         key.hasPrefix("remoteApplicationMapping.chromecast.") ||
@@ -34,6 +34,9 @@ enum ChromecastSettingsArchive {
             guard value is String || value is NSNumber || value is Data else { throw ArchiveError.invalid }
             if let text = value as? String, text.count > 4096 { throw ArchiveError.invalid }
             if let blob = value as? Data, blob.count > 16384 { throw ArchiveError.invalid }
+            if key == AppAppearance.key {
+                guard let raw = value as? String, AppAppearance(rawValue: raw) != nil else { throw ArchiveError.invalid }
+            }
             if key == AudioRouteConfiguration.selectedOutputUIDKey, !(value is String) { throw ArchiveError.invalid }
             if key == AudioRouteConfiguration.remoteGainKey {
                 guard let number = value as? NSNumber, number.doubleValue.isFinite,
