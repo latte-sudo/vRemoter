@@ -14,10 +14,17 @@ jobs:
         run: swift build
       - name: Protocol regression tests
         run: zsh run-self-tests.sh
-      - name: First-round model regression tests
+      - name: Chromecast model and voice regressions
         env:
           VREMOTE_VOICE_TEST_REPETITIONS: "20"
         run: bash Tools/test-chromecast-models.sh
+      - name: Mapping geometry contracts
+        run: python3 Tools/check-mapping-layout.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Offline prototype regressions
+        run: node docs/prototypes/test-vremoter-onboarding-settings.cjs
       - name: Native interface source contracts
         run: python3 Tools/check-native-interface.py
       - name: Runtime cleanup contracts

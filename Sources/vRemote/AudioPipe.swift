@@ -116,9 +116,8 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
         )
     }
 
-    /// Kept under the V1 method name so the proven X6 session state machine
-    /// remains unchanged. In vRemote, `active` means that the dual-input mix
-    /// is open; it no longer selects one microphone over another.
+    /// Opens or closes the selected output route for a remote voice session.
+    /// This product disables Mac microphone input, including on upgrade.
     @discardableResult
     func setRemoteActive(_ active: Bool) -> Bool {
         routeLock.lock()

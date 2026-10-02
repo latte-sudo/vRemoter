@@ -18,16 +18,7 @@ final class AudioPipe {
 enum L10n {
     static func text(_ chinese: String, _ english: String) -> String { english }
 }
-enum RemoteMicrophoneOpenResult: Equatable {
-    case sent, alreadyStreaming, retryAfter(TimeInterval), unavailable, failed(String)
-}
-protocol DoubaoAudioStateProviding: AnyObject {
-    var onSnapshotChanged: ((DoubaoAudioStateMonitor.Snapshot) -> Void)? { get set }
-    func start()
-    func stop()
-    func snapshotNow() -> DoubaoAudioStateMonitor.Snapshot
-}
-final class DoubaoAudioStateMonitor: DoubaoAudioStateProviding {
+final class DoubaoAudioStateMonitor {
     enum State { case unavailable, inactive, active }
     struct Snapshot { let state: State; var isRecording: Bool { state == .active } }
     var onSnapshotChanged: ((Snapshot) -> Void)?

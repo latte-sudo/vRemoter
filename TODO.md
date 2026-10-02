@@ -16,4 +16,4 @@
 This is recorded for later design and implementation only. The current change
 adds mapping actions, continuous scrolling and an app-local display name; it does
 not implement multi-device pairing, host switching, identity binding, per-device
-profiles or system Bluetooth renaming. See [display-name scope](docs/REMOTE_DISPLAY_NAME.md).
+profiles or system Bluetooth renaming. See [display-name scope](docs/NATIVE_INTERFACE_IMPLEMENTATION.md#remote-display-name-and-identity).

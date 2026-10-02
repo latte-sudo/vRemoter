@@ -2,13 +2,13 @@
 
 ## User flow
 
-Build with `package-app.sh`, install with `install-app.sh`, then launch the
+Build with `package-app.sh`, optionally install with `install-app.sh` (replaces `~/Applications/vRemote.app`), then launch the
 installed `~/Applications/vRemote.app` in Finder. The app's displayed name is
 vRemoter. Building or copying an app alone does not request privacy access.
 Use the same installed app when testing; a SwiftPM executable launched from
 VS Code or a terminal is not proof that the packaged app has permission.
 
-The first-run **权限** step and **设置与诊断** page offer separate actions:
+The first-run **权限** step and **权限与诊断 / Permissions & Diagnostics** page offer separate actions:
 
 - **请求权限** invokes the relevant system API for an ungranted permission
 - **打开设置** opens that permission's System Settings page without requesting

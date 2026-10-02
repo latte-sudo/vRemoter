@@ -5,21 +5,18 @@ import Foundation
 
 enum SupportedRemoteID: String, CaseIterable, Identifiable, Codable {
     case chromecast
-    case x6
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .chromecast: "Chromecast Voice Remote"
-        case .x6: "X6 Remote"
         }
     }
 
     var signature: String {
         switch self {
         case .chromecast: "18D1 · 9450"
-        case .x6: "1D5A · C081"
         }
     }
 }
@@ -50,7 +47,8 @@ struct RemoteButtonDefinition: Identifiable, Hashable {
 }
 
 enum RemoteProfiles {
-    /// Legacy types remain readable for migration, but only Chromecast is offered.
+    /// Only Chromecast has an actionable profile. Retired preference values
+    /// remain on disk without a corresponding remote model or execution path.
     static let activeRemotes: [SupportedRemoteID] = [.chromecast]
 
     static let chromecastButtons: [RemoteButtonDefinition] = [
@@ -74,29 +72,8 @@ enum RemoteProfiles {
     static func buttons(for remote: SupportedRemoteID) -> [RemoteButtonDefinition] {
         switch remote {
         case .chromecast: chromecastButtons
-        case .x6: x6Buttons
         }
     }
-
-    static let x6Buttons: [RemoteButtonDefinition] = [
-        .init(id: "mouseMode", title: L10n.text("鼠标模式", "Mouse Mode"), symbol: "cursorarrow.motionlines", defaultTarget: .disabled, remappable: false),
-        .init(id: "k2A", title: "Delete", symbol: "delete.left", defaultTarget: .deleteBackward),
-        .init(id: "cE2", title: L10n.text("静音", "Mute"), symbol: "speaker.slash", defaultTarget: .mute),
-        .init(id: "c224", title: L10n.text("返回", "Back"), symbol: "chevron.backward", defaultTarget: .escape),
-        .init(id: "k65", title: L10n.text("菜单", "Menu"), symbol: "line.3.horizontal", defaultTarget: .disabled),
-        .init(id: "c196", title: L10n.text("浏览器/搜索", "Browser / Search"), symbol: "magnifyingglass", defaultTarget: .spotlight),
-        .init(id: "k52", title: L10n.text("方向上", "Up"), symbol: "arrow.up", defaultTarget: .arrowUp),
-        .init(id: "k51", title: L10n.text("方向下", "Down"), symbol: "arrow.down", defaultTarget: .arrowDown),
-        .init(id: "k50", title: L10n.text("方向左", "Left"), symbol: "arrow.left", defaultTarget: .arrowLeft),
-        .init(id: "k4F", title: L10n.text("方向右", "Right"), symbol: "arrow.right", defaultTarget: .arrowRight),
-        .init(id: "k28", title: "OK", symbol: "circle.inset.filled", defaultTarget: .returnKey),
-        .init(id: "k4B", title: "PG+", symbol: "arrow.up.to.line", defaultTarget: .pageUp),
-        .init(id: "k4E", title: "PG−", symbol: "arrow.down.to.line", defaultTarget: .pageDown),
-        .init(id: "voice", title: L10n.text("语音", "Voice"), symbol: "mic", defaultTarget: .doubaoVoice, voiceControlled: true),
-        .init(id: "cE9", title: L10n.text("音量＋", "Volume Up"), symbol: "speaker.plus", defaultTarget: .volumeUp),
-        .init(id: "cEA", title: L10n.text("音量－", "Volume Down"), symbol: "speaker.minus", defaultTarget: .volumeDown),
-        .init(id: "s01", title: L10n.text("电源", "Power"), symbol: "power", defaultTarget: .disabled),
-    ]
 }
 
 enum RemoteMappingTarget: String, CaseIterable, Identifiable, Codable, Hashable {
@@ -575,7 +552,7 @@ final class RemoteMappingStore: ObservableObject {
             }
             defaults.removeObject(forKey: repeatPrefix + remote.rawValue + "." + button.id)
         }
-        if remote == .chromecast { installUncustomizedDirectionDefaults() }
+        installUncustomizedDirectionDefaults()
         changed()
     }
 }

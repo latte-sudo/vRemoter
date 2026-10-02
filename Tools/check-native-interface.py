@@ -36,4 +36,22 @@ remote_only = 'AudioPipe.shared.setInputEnabled(mac: false, remote: true)'
 check(remote_only in main, 'startup applies remote-only mode to cached audio state')
 for start in ['chromecastHID.start()', 'chromecastBLE.start()', 'chromecastSession.start()']:
     check(main.index(remote_only) < main.index(start), 'remote-only state precedes ' + start)
+sidebar = view[view.index('private var sidebar'):view.index('private func stepCompleted')]
+for contract in ['.frame(width: ConsoleDesignTokens.sidebarWidth, alignment: .leading)',
+                 '.accessibilityLabel(item.title)', 'Text(item.title).multilineTextAlignment(.leading)',
+                 'Text(steps[index])', '.fixedSize(horizontal: false, vertical: true)']:
+    check(contract in sidebar, 'left-aligned accessible sidebar: ' + contract)
+check('Label(item.title, systemImage: item.symbol)' not in sidebar, 'sidebar layout remains explicit')
+indicator = (root / 'Sources/vRemote/MenuBarVoiceReception.swift').read_text()
+for contract in ['phase == .opening || phase == .recording', 'streaming &&',
+                 'if !acceptsAudio { lastPacketAt = nil }', 'age < Self.packetFreshness']:
+    check(contract in indicator, 'menu dot requires live PCM: ' + contract)
+for contract in ['voiceReception.receivedPacket(at:', 'RunLoop.main.add(timer, forMode: .common)',
+                 'voiceReceptionTimer?.invalidate()', 'setAccessibilityLabel(label)',
+                 'self.updateMenuVoiceIndicator()']:
+    check(contract in main, 'menu dot lifecycle: ' + contract)
+check('MenuBarVoiceReceptionTests.swift' in (root / 'Tools/test-chromecast-models.sh').read_text(), 'menu dot regressions run in CI')
+icon = (root / 'Sources/vRemote/MenuBarStatusIcon.swift').read_text()
+for contract in ['LogoAsset.image.draw', 'NSColor.systemGreen.setFill()', 'image.isTemplate = false']:
+    check(contract in icon, 'menu dot rendering: ' + contract)
 print(f'PASS: {checks} native interface source contracts (not runtime UI tests)')

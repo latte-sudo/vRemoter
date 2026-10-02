@@ -4,6 +4,22 @@ The application's inherited vRemoter implementation is covered by the root
 [LICENSE](LICENSE): MIT, Copyright (c) 2026 Sima Qingfeng. Keep that complete
 license alongside this file in source and application distributions.
 
+## Renamed and extracted inherited implementation
+
+The Chromecast-only cleanup removes the X6 HID bridge, old X6 coordinator,
+profile and legacy session self-test. Shared code derived from the inherited
+implementation remains under the root MIT notice:
+
+- `Sources/vRemote/KeyboardTriggerObserver.swift` retains keyboard observation
+  from the former `X6SearchSuppressor.swift`; the X6 Search gate is removed
+- `Sources/vRemote/RemoteVoiceSupport.swift` retains the shared microphone-open
+  result and audio-state provider interfaces from the former
+  `X6SessionCoordinator.swift`
+
+Removing the obsolete X6 design, changing file names or extracting shared types
+neither removes this provenance nor changes the applicable license. Existing
+branding assets are retained; their rights review remains separate.
+
 ## ATVV and ADPCM implementation
 
 This project contains code adapted from

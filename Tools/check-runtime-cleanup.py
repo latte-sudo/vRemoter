@@ -16,6 +16,13 @@ def check(condition, message):
 
 
 removed_paths = [
+    "Sources/vRemote/X6HIDBridge.swift",
+    "Sources/vRemote/X6SessionCoordinator.swift",
+    "Sources/vRemote/X6SearchSuppressor.swift",
+    "Sources/vRemote/VoiceSessionSelfTest.swift",
+    "Tools/generate-qr.swift",
+    "Design/UIv1_bak.fig",
+    "Design/vRemoter-UI-v1-Frozen",
     "Sources/vRemote/AnalyticsSupport.swift",
     "Sources/vRemote/CommerceSupport.swift",
     "Sources/vRemote/DonationSupport.swift",
@@ -67,12 +74,34 @@ for declaration in [
     check(re.search(r"\b" + declaration + r"\b", debug), f"shared UI missing: {declaration}")
 
 main = (root / "Sources/vRemote/main.swift").read_text()
-for startup in ["chromecastHID.start()", "chromecastBLE.start()", "chromecastSession.start()", "x6SearchSuppressor.start()"]:
+for startup in ["chromecastHID.start()", "chromecastBLE.start()", "chromecastSession.start()", "keyboardTriggerObserver.start()"]:
     check(startup in main, f"active runtime startup missing: {startup}")
-for source in ["X6SearchSuppressor.swift", "X6SessionCoordinator.swift", "BLEBridge.swift", "RemoteMappingSupport.swift"]:
-    check((root / "Sources/vRemote" / source).exists(), f"shared compatibility source missing: {source}")
+for source in ["KeyboardTriggerObserver.swift", "KeyboardTriggerState.swift", "RemoteVoiceSupport.swift", "BLEBridge.swift", "RemoteMappingSupport.swift"]:
+    check((root / "Sources/vRemote" / source).exists(), f"active shared source missing: {source}")
+
+# Legacy migration keys are intentionally permitted only at the archive boundary.
+for path in (root / "Sources/vRemote").rglob("*.swift"):
+    if path.name == "ChromecastSettingsArchive.swift":
+        continue
+    check(not re.search(r"\bX6\w*|\bx6\w*|VoiceRemoteID|VoiceSessionSelfTest|--voice-session-self-test", path.read_text()),
+          f"retired remote runtime reference: {path}")
+observer = (root / "Sources/vRemote/KeyboardTriggerObserver.swift").read_text()
+for contract in ["options: .listenOnly", "CFMachPortInvalidate(tapPort)", "CFRunLoopRemoveSource", "triggerState.reset()", "Key.syntheticMarker"]:
+    check(contract in observer, f"keyboard observer safety contract missing: {contract}")
+check("return nil" not in observer, "keyboard observation must not suppress events")
+check("chromecastBLE.clearRecordings()" in main, "recording cleanup must close the active recorder")
+voice_runner = (root / "run-chromecast-voice-tests.sh").read_text()
+check("RemoteVoiceSupport.swift" in voice_runner, "voice tests must use production shared contracts")
+voice_tests = (root / "SelfTests/ChromecastVoice/main.swift").read_text()
+for duplicate in ["enum RemoteMicrophoneOpenResult", "protocol DoubaoAudioStateProviding"]:
+    check(duplicate not in voice_tests, f"voice suite shadows production contract: {duplicate}")
+model_runner = (root / "Tools/test-chromecast-models.sh").read_text()
+check("KeyboardTriggerStateTests.swift" in model_runner, "keyboard edge regressions not wired into CI")
 
 plist = plistlib.loads((root / "Packaging/Info.plist").read_bytes())
+check("NSMicrophoneUsageDescription" not in plist, "retired Mac-microphone purpose remains")
+for locale in ["en.lproj", "zh-Hans.lproj"]:
+    check("NSMicrophoneUsageDescription" not in (root / "Packaging" / locale / "InfoPlist.strings").read_text(), "retired localized Mac-microphone purpose remains")
 check(plist["CFBundleIdentifier"] == "local.simaqingfeng.vRemote", "bundle identity unexpectedly changed")
 check(plist["LSMinimumSystemVersion"] == "12.0", "packaged macOS minimum unexpectedly changed")
 package = (root / "package-app.sh").read_text()

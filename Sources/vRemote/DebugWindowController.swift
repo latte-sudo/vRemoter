@@ -236,7 +236,6 @@ final class ConsoleViewModel: ObservableObject {
     @Published var permissionCheckedAt: Date?
     var accessibilityPermissionStatus: String { accessibilityGranted ? "已授权" : "未授权" }
     var inputMonitoringPermissionStatus: String { inputMonitoringGranted ? "已授权" : "未授权" }
-    @Published var x6Connected = false
     @Published var chromecastConnected = false
     @Published var inputTriggerKey = AppStorage.inputTriggerKey
     @Published var activeModal: ConsoleModal?
@@ -437,7 +436,6 @@ final class DebugWindowController: NSWindowController, NSWindowDelegate {
         doubaoIsRecording: Bool,
         doubaoInput: String,
         driverAvailable: Bool,
-        x6Connected: Bool,
         chromecastConnected: Bool,
         macLevelDB: Double? = nil,
         remoteLevelDB: Double? = nil
@@ -453,7 +451,6 @@ final class DebugWindowController: NSWindowController, NSWindowDelegate {
             self.model.doubaoIsRecording = doubaoIsRecording
             self.model.doubaoInput = doubaoInput
             self.model.driverAvailable = driverAvailable
-            self.model.x6Connected = x6Connected
             self.model.chromecastConnected = chromecastConnected
             if let macLevelDB { self.model.macLevelDB = macLevelDB }
             if let remoteLevelDB { self.model.remoteLevelDB = remoteLevelDB }

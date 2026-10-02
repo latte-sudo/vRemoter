@@ -11,6 +11,7 @@ enum Key { static let syntheticMarker: Int64 = 0x56524D54 }
 struct RemoteMappingStoreTests {
     static func main() throws {
         try directionDefaultsAndNewTargets()
+        retiredPreferencesRemainInert()
         let suite = "vRemote.mapping-tests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -69,7 +70,40 @@ struct RemoteMappingStoreTests {
             }
         }
         precondition(RemoteProfiles.activeRemotes == [.chromecast])
+        precondition(SupportedRemoteID.allCases == [.chromecast])
+        precondition(SupportedRemoteID(rawValue: "x6") == nil)
+        precondition((try? JSONDecoder().decode(SupportedRemoteID.self, from: Data("\"x6\"".utf8))) == nil)
+        let decodedRemote = try JSONDecoder().decode(SupportedRemoteID.self, from: Data("\"chromecast\"".utf8))
+        precondition(decodedRemote == .chromecast)
         print("PASS: mapping migration, save/reload, voice exclusion, repeat conflict and reset")
+    }
+
+    static func retiredPreferencesRemainInert() {
+        let suite = "vRemote.retired-preferences.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let retired: [String: Any] = [
+            "remoteMappingEnabled.x6": true,
+            "remoteMapping.x6.k52": "commandV",
+            "remoteMapping.x6.k52.doubleClick": "custom",
+            "remoteMapping.x6.k52.longPress": "launchApplication",
+            "remoteCustomMapping.x6.k52.doubleClick": Data("retired shortcut".utf8),
+            "remoteApplicationMapping.x6.k52.longPress": Data("retired application".utf8),
+            "remoteMappingHoldRepeat.x6.k52": false
+        ]
+        for (key, value) in retired { defaults.set(value, forKey: key) }
+        let store = RemoteMappingStore(defaults: defaults)
+        let button = RemoteProfiles.chromecastButtons.first { $0.id == "03" }!
+        // Legacy enablement and actions cannot become Chromecast defaults.
+        precondition(!store.isEnabled(.chromecast))
+        precondition(store.target(for: button, remote: .chromecast) == .arrowUp)
+        precondition(store.target(for: button, remote: .chromecast, gesture: .longPress) == .scrollUp)
+        store.setEnabled(true, for: .chromecast)
+        store.setTarget(.commandC, for: button, remote: .chromecast)
+        store.reload()
+        store.reset(.chromecast)
+        let remaining = defaults.dictionaryRepresentation().filter { retired[$0.key] != nil }
+        precondition(NSDictionary(dictionary: retired).isEqual(to: remaining), "initialization, edits, reload and reset must leave retired disk values intact")
     }
 
     static func directionDefaultsAndNewTargets() throws {

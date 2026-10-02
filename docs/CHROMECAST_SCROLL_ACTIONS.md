@@ -1,4 +1,26 @@
-# Application switching and directional scrolling
+# Chromecast mapping layout and actions
+
+## Photo-based mapping layout
+
+The same canvas appears in setup and the Remote page. Fourteen ordinary buttons
+show equal-width single/double/long gesture cells; the voice card is reserved and
+links to voice settings. The selected gesture opens one inline editor below the
+canvas, scrolled to its top. Blue identifies the selected card/connector and
+green the latest observed HID report; observation does not fabricate an action.
+
+- Left column: Up, Left, Down, Back, Home, YouTube, Power
+- Right column: Select, Right, Volume up, Volume down, Voice, Mute, Netflix, Input
+- All 15 anchors refer to the existing 1024 × 1536 front-and-side user image;
+  photo, hotspots and connectors share an aspect-preserving rectangle
+- Canvas minimum is 760 points with horizontal fallback and vertical page scroll;
+  photo maximum is 300 × 450, rows are 72 points with 6-point gaps
+- The reference app's workflow/layout was studied, but its source, private
+  Chromecast package, photo and branding were not copied; see
+  [reference provenance](PROJECT_OWNERSHIP_AND_LICENSES.md#reference-and-replacement-ledger)
+
+`python3 Tools/check-mapping-layout.py` checks source and geometry contracts.
+`SelfTests/ChromecastMappingLayoutTests.swift` tests ordered placement and Swift
+geometry. Neither establishes native pixel rendering or physical button accuracy.
 
 ## Mapping behavior
 
@@ -54,9 +76,9 @@ No per-action background timer or held modifier is used for scrolling.
 controller/scheduler and non-posting CGEvent regression tests. The existing
 macOS CI aggregate runs this script, archive tests and `swift build`.
 
-This editing environment is Linux without `swiftc` or Apple frameworks. Shell
-syntax and whitespace checks can run here; compilation and executable test
-results must be taken from CI for the exact published commit, not a prior run.
+The pure recognizer suite needs Swift; storage/controller/event suites additionally
+need macOS frameworks. Take build and test results from the exact commit, not a
+prior run. Linux source checks do not establish native behavior.
 
 Before release, verify on macOS 12+ with a physical Chromecast remote:
 
@@ -74,4 +96,6 @@ CI does not validate hardware cadence, Bluetooth loss, rendered UI, real event
 routing or system permission behavior. No installer/release/signing changes are
 part of this work.
 
-Native UI v6 uses explicit import/reset confirmation with optional export first; there is no user-visible undo action. See [native interface](NATIVE_INTERFACE_IMPLEMENTATION.md).
+The native UI uses explicit import/reset confirmation with optional export first;
+there is no user-visible undo action. See [native interface](NATIVE_INTERFACE_IMPLEMENTATION.md)
+and the consolidated [release checklist](CHROMECAST_ACCEPTANCE.md).

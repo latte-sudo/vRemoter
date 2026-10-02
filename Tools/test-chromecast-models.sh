@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+if ! command -v swiftc >/dev/null 2>&1; then
+  printf '%s\n' 'BLOCKED: swiftc is not installed. Run this suite on a Swift-enabled machine; AppKit cases require macOS.' >&2
+  exit 127
+fi
 mkdir -p .build/chromecast-tests
+swiftc Sources/vRemote/VoiceSessionPresentation.swift Sources/vRemote/MenuBarVoiceReception.swift SelfTests/MenuBarVoiceReceptionTests.swift -o .build/chromecast-tests/menu-bar-voice
+.build/chromecast-tests/menu-bar-voice
+swiftc Sources/vRemote/KeyboardTriggerState.swift SelfTests/KeyboardTriggerStateTests.swift -o .build/chromecast-tests/keyboard-trigger
+.build/chromecast-tests/keyboard-trigger
 swiftc Sources/vRemote/PermissionRequestSupport.swift SelfTests/PermissionRequestTests.swift -o .build/chromecast-tests/permissions
 .build/chromecast-tests/permissions
 swiftc Sources/vRemote/ChromecastMappingLayout.swift SelfTests/ChromecastMappingLayoutTests.swift -o .build/chromecast-tests/mapping-layout

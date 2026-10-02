@@ -1,16 +1,16 @@
 # vRemoter Figma Logo
 
-这是一个追加式本地 Figma 插件包，用来在当前打开的封版 UI 文件旁边生成 `vRemoter · Brand Logo System`。
+这是保留的上游品牌设计源和本地 Figma 插件包，用来在当前打开的设计文件中生成 `vRemoter · Brand Logo System`。当前应用打包使用 `vRemoter-app-icon-v9.png`；本轮清理没有改动标志、图标或品牌身份。旧的 X6 / 混音器封版 UI 已删除，不再作为当前界面设计依据。
 
 ## 使用方法
 
-1. 打开 Figma 桌面版，并打开封版 UI 文件，或导入 `../UIv1_bak.fig`。
+1. 打开 Figma 桌面版，打开一个可编辑的设计文件；不需要已删除的旧封版 UI 文件。
 2. 打开菜单：`Plugins → Development → Import new plugin from manifest…`
 3. 选择本文件夹里的 `manifest.json`。
 4. 再次打开：`Plugins → Development → vRemoter Logo`。
 5. 插件会在已有 `vRemoter · Studio Mixer States` 右侧生成 logo 画板；如果当前页面没有这个画板，则生成到最右侧空白处。
 
-插件只删除同名的 `vRemoter · Brand Logo System`，不会删除或修改封版 UI 状态稿。
+插件会替换同名的 `vRemoter · Brand Logo System`。运行前确认当前文件中该画板可以被替换；其余画板不受影响。
 
 ## 标志逻辑
 

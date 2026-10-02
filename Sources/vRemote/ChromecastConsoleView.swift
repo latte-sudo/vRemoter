@@ -129,11 +129,12 @@ struct ChromecastConsoleView: View {
                 Text(setup ? "从这里开始" : "偏好设置").font(.system(size: 18, weight: .semibold))
                 Text(setup ? "几步设置，让声音触手可及" : "让遥控器适合你的习惯")
                     .font(.system(size: 11)).foregroundColor(ConsoleDesignTokens.secondaryText)
-            }.padding(.horizontal, 20).padding(.top, 45)
+            }.frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20).padding(.top, 45)
             if setup {
-                VStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 0) {
                     ForEach(steps.indices, id: \.self) { index in
-                        VStack(spacing: 0) {
+                        VStack(alignment: .leading, spacing: 0) {
                             Button { step = index } label: {
                                 HStack(spacing: 11) {
                                     ZStack {
@@ -142,12 +143,17 @@ struct ChromecastConsoleView: View {
                                         else { Text("\(index + 1)").font(.system(size: 11, weight: .semibold)) }
                                     }.frame(width: 23, height: 23)
                                         .foregroundColor(index == step ? Color.white : ConsoleDesignTokens.accentText)
+                                        .accessibilityHidden(true)
                                     Text(steps[index]).font(.system(size: 13, weight: index == step ? .semibold : .regular))
-                                    Spacer(minLength: 0)
-                                }.padding(.horizontal, 12).padding(.vertical, 9)
+                                        .multilineTextAlignment(.leading)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }.frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 12).padding(.vertical, 9)
                                     .background(index == step ? ConsoleDesignTokens.selection : Color.clear).cornerRadius(8)
                                     .contentShape(Rectangle())
-                            }.buttonStyle(.plain).disabled(index > furthestStep)
+                            }.buttonStyle(.plain).frame(maxWidth: .infinity, alignment: .leading)
+                                .disabled(index > furthestStep)
                                 .accessibilityLabel("第 \(index + 1) 步，共 7 步，\(steps[index])")
                                 .accessibilityValue(index == step ? "当前步骤" : stepCompleted(index) ? "已完成" : "未完成")
                             if index < steps.count - 1 {
@@ -159,15 +165,22 @@ struct ChromecastConsoleView: View {
                     }
                 }.padding(.horizontal, 12)
             } else {
-                VStack(spacing: 5) {
+                VStack(alignment: .leading, spacing: 5) {
                     ForEach(ChromecastSettingsPage.allCases, id: \.self) { item in
                         Button { page = item } label: {
-                            Label(item.title, systemImage: item.symbol).font(.system(size: 13, weight: page == item ? .semibold : .regular))
+                            HStack(spacing: 11) {
+                                Image(systemName: item.symbol).frame(width: 20).accessibilityHidden(true)
+                                Text(item.title).multilineTextAlignment(.leading)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }.font(.system(size: 13, weight: page == item ? .semibold : .regular))
                                 .frame(maxWidth: .infinity, alignment: .leading).padding(12)
                                 .foregroundColor(page == item ? ConsoleDesignTokens.accentText : ConsoleDesignTokens.text)
                                 .background(page == item ? ConsoleDesignTokens.selection : Color.clear).cornerRadius(8)
                                 .contentShape(Rectangle())
-                        }.buttonStyle(.plain).accessibilityValue(page == item ? "当前页面" : "")
+                        }.buttonStyle(.plain).frame(maxWidth: .infinity, alignment: .leading)
+                            .accessibilityLabel(item.title)
+                            .accessibilityValue(page == item ? "当前页面" : "")
                     }
                 }.padding(.horizontal, 12)
             }
@@ -179,8 +192,10 @@ struct ChromecastConsoleView: View {
                     .font(.system(size: 11)).foregroundColor(connected ? ConsoleDesignTokens.success : ConsoleDesignTokens.secondaryText)
                 Divider()
                 HStack { Text("vRemoter"); Spacer(); Text("Chromecast") }.font(.system(size: 10)).foregroundColor(ConsoleDesignTokens.secondaryText)
-            }.padding(20)
-        }.frame(width: ConsoleDesignTokens.sidebarWidth).frame(maxHeight: .infinity)
+            }.frame(maxWidth: .infinity, alignment: .leading).padding(20)
+        }.multilineTextAlignment(.leading)
+            .frame(width: ConsoleDesignTokens.sidebarWidth, alignment: .leading)
+            .frame(maxHeight: .infinity, alignment: .topLeading)
             .background(ConsoleDesignTokens.sidebar)
     }
 

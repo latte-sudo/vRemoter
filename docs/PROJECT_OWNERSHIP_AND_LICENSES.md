@@ -2,7 +2,7 @@
 
 审计日期：2026-10-02。审计起点：`ac3890f`；原始上游基线：`15076345d955fcc81dae659150d1702b50b8010a`。
 
-本轮原生迁移已移除旧推广、赞助、商城、自动更新、TelemetryDeck 及旧站点文件；应用仍保留 MIT 来源代码与现有虚拟驱动路线。
+本轮原生迁移与后续清理已移除旧推广、赞助、商城、自动更新、TelemetryDeck、旧站点，以及 X6 专用运行代码和封版 UI 设计。应用仍保留 MIT 来源代码、提取后的共享键盘/语音能力与现有虚拟驱动路线；品牌和图标没有更换。
 
 这是当前 fork 的工程来源与发布检查表，不是权属证明或法律意见。清理旧界面、推广和商店资源不会消除仍然保留代码的许可条件，也不应把继承的实现改称全部原创。实际删除与保留范围见 [CLEANUP_REVIEW.md](CLEANUP_REVIEW.md)。
 
@@ -11,7 +11,7 @@
 - 这个仓库可以作为用户自己的项目继续维护、修改和重新命名；保留的 MIT 代码仍须带原作者的版权和许可文字。MIT 文字没有要求继续展示旧产品界面、赞助按钮、商城或原作者的更新服务；版权通知与这些推广入口应分开处理。用户姓名、公司名称与新增代码的版权声明尚未指定，不代填。
 - 新的原生引导和设置实现以用户批准的 `docs/prototypes/vremoter-onboarding-settings.html` 为界面依据。该原型自身为离线 HTML/CSS/JavaScript，没有外部脚本、远程字体或 npm 依赖。
 - 原型、原生新增文件和后续改动的开发记录不等同于第三方素材的权属证明。新 UI 使用现有功能层，也不改变其来源。
-- `docs/REUSE_AND_REPLACEMENT_LEDGER.md` 记录了 SayAll/remote-mic-app 的流程与视觉布局参考，以及“未复制源代码、未取得或复制不可用的 Chromecast 私有模块”的边界。该边界应继续保持；不能从参考项目的公开代码许可推定私有模块有使用授权。
+- 下方复用台账集中保留了 SayAll/remote-mic-app 的流程与视觉布局参考，以及“未复制源代码、未取得或复制不可用的 Chromecast 私有模块”的边界。该边界应继续保持；不能从参考项目的公开代码许可推定私有模块有使用授权。
 
 ## 2. 仍须保留或核对的许可与版权
 
@@ -32,7 +32,7 @@
 - 传输与音频：`ATVV/*`、`BLEBridge.swift`、`ChromecastRemoteHIDBridge.swift`、`AudioPipe.swift`、`WavRecorder.swift`
 - 系统集成：`AppStorage.swift`、`InputTrigger.swift`、`DoubaoAudioStateMonitor.swift`、`LaunchAtLogin.swift`、`Localization.swift`、`Log.swift`
 - 映射和应用胶水：`RemoteMappingSupport.swift`、`main.swift`、`DebugWindowController.swift` 中保留的权限帮助、快捷键录制及窗口/模型代码
-- 仍待拆分的旧命名实现：`X6SearchSuppressor.swift` 的键盘触发监听、`X6SessionCoordinator.swift` 中被 Chromecast 使用的共享类型；删除旧类后，提取出来的代码仍保留来源
+- 已提取/改名的共享实现：`KeyboardTriggerObserver.swift` 的键盘触发监听来自已删除的 `X6SearchSuppressor.swift`；`RemoteVoiceSupport.swift` 的共享语音类型来自已删除的 `X6SessionCoordinator.swift`。删除旧类和 X6 Search gate 不会移除保留代码的来源与 MIT 条件
 - 安装及开发工具：`Driver/*`、`Packaging/*`、`package-app.sh`、`build-pkg.sh`、`build-dmg.sh`、`install-app.sh`、`run-self-tests.sh` 及未删除的原有工具
 
 新增的 Chromecast 状态机、设置档案、引导证据、主题/程序坞设置、测试等已由 Git 历史区分；新增文件名不应被当作完全独立创作的法律结论。本次不更换仓库的整体许可。
@@ -43,12 +43,32 @@
 | --- | --- | --- |
 | `Resources/RemoteImages/chromecast-front-and-volume-enhanced.png` 与原型中的内嵌遥控器图 | 现有替换台账记录为用户提供图片，经 AI 增强正面并重建侧面音量示意 | 当前 UI 所需，应保留。未确认原照片拍摄者、商业分发授权或 AI 修复细节的实物准确性；AI 增强不自动清除原图权利。正式发布前由用户确认或替换 |
 | `Design/vRemoter-Logo-v1/vRemoter-app-icon-v9.png` | 上游品牌图，清理前被 `LogoAsset` 与打包脚本直接使用 | 不能无替代直接删除，否则丢失应用图标/打包失败；让用户指定新图标。根 MIT 未提供可独立核对的品牌/商标授权证明 |
-| 其余 `Design/vRemoter-Logo-v1/*`、`Design/vRemoter-UI-v1-Frozen/*`、`Design/UIv1_bak.fig` | 上游设计历史和 Figma 插件，没有单独资产权利清单 | 不属于原生运行时；可在确认无打包引用后移除。不能把保留图形重新署名为用户原创 |
+| 其余 `Design/vRemoter-Logo-v1/*` | 保留的上游品牌设计历史和 Figma 插件，没有单独资产权利清单 | 本轮不更换品牌，全部保留；不能把图形重新署名为用户原创 |
+| 已删除的 `Design/vRemoter-UI-v1-Frozen/*`、`Design/UIv1_bak.fig` | 被当前原型取代的上游 X6 / 混音器 UI 设计 | 无应用/打包引用，本轮已移除。删除设计不影响保留源代码与品牌资产的来源要求 |
 | `Resources/PermissionGuides/*.png` | 上游 macOS / 豆包界面截图；`README.md` 仅说明如何替换截图 | 权限帮助仍会读取，保留或以用户自己的最新截图替换；没有逐图作者或额外许可证据 |
-| `Resources/RemoteImages/chromecast-voice-remote.png`、`x6-remote.png` | 上游遥控器商品图，独立来源未记录 | 旧映射视图删除并确认无引用后可移除；保留或对外使用时须核实照片来源 |
-| `Resources/Commerce/*`、`Resources/buymeacoffee/*`、旧 `docs/assets/*` | 上游营销、收款二维码、品牌、截图和商品图 | 不是许可强制保留内容。停用旧推广后整组移除其代码/页面/打包引用；不要把原收款渠道替换成未经指定的新渠道 |
+| `Resources/RemoteImages/chromecast-voice-remote.png`、`x6-remote.png` | 上游遥控器商品图，独立来源未记录 | 已随旧映射视图移除；如以后从历史恢复或对外使用，仍须核实照片来源 |
+| `Resources/Commerce/*`、`Resources/buymeacoffee/*`、旧 `docs/assets/*` | 上游营销、收款二维码、品牌、截图和商品图 | 已整组移除及解除代码/页面/打包引用。删除这些营销内容不等于删除许可证；没有创建新收款渠道 |
 | `docs/prototypes/vremoter-onboarding-settings.html` | 用户批准并归档的离线 UI 原型；[原型说明](prototypes/README.md) | 保留作实现与交互验收依据。其内嵌图片遵循本表第一行；系统字体栈没有分发字体文件。内联 SVG 图标未标注第三方图标库来源，本次未逐个建立创作来源，不能仅凭没有外部依赖称全部图形原创 |
 | SayAll / `HD838A/remote-mic-app` | [固定参考提交](https://github.com/HD838A/remote-mic-app/tree/5a10bba28bd1514892a2a7400ae594629f728da7)；GPL-3.0-only 软件与独立品牌许可 | 参考了交互和视觉布局，没有为本实现复制其源代码或私有 Chromecast 模块。其鸭子图标等品牌资产另受 [LOGO-LICENSE.en.md](https://github.com/HD838A/remote-mic-app/blob/5a10bba28bd1514892a2a7400ae594629f728da7/LOGO-LICENSE.en.md) 限制，**不得借用为本项目图标**。今后复制任何代码或资源前须重新审查 |
+
+## Reference and replacement ledger
+
+This section consolidates the former reuse ledger and mapping-layout reference
+notes; deleting those duplicate documents does not remove their provenance.
+
+| Item | Retained facts and next review |
+| --- | --- |
+| vRemoter source | Fork of upstream `15076345d955fcc81dae659150d1702b50b8010a`; inherited MIT notice remains, including renamed/extracted shared implementations |
+| SayAll layout/workflow reference | `HD838A/remote-mic-app` at `5a10bba28bd1514892a2a7400ae594629f728da7`; public `RemoteMappingCanvas.swift`, `SettingsView.swift` and the screenshots below informed behavior/layout. No reference source, private Chromecast module, photo or branding was copied for this implementation |
+| Reference screenshot evidence | In that reference repository: `Screenshots/settings-page/sidebar-profile-login-20260922/light/mapping-1020x772.png` and `Testing/artifacts/chromecast-layout/mapping-zh-Hans-light-1400x2000.png`. These are external reference paths, not missing local assets |
+| Current Chromecast image | User-provided photo enhanced at the front with a reconstructed side-volume illustration; verify rights, physical proportions/buttons and production quality before distributing |
+| Existing brand and permission screenshots | Current icon/help and all branding design sources remain; superseded remote/promotional assets and frozen UI design are removed. Retention is not a new trademark or screenshot permission grant |
+| Speech tool compatibility | Existing Doubao observation remains; custom tools use explicit configuration and a human-confirmed real trial. Tool selection/launch alone is not verified compatibility |
+| Virtual driver | Existing modified BlackHole route retained, not rewritten or cleared for a new release; source/notices/license route remain open below |
+| Retired services and X6 | Commerce/update/donation/telemetry/site and X6 transport/coordinator/profile removed. Import only ignores known historical X6 fields in v1 Chromecast archives; unrelated on-disk data is not erased |
+
+Any later reuse of reference source, logos or unavailable private modules requires
+its own source/license review. The current cleanup does not change that boundary.
 
 ## 4. BlackHole 驱动：发布前必须单独处理
 

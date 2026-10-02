@@ -8,6 +8,7 @@ fi
 OUTPUT="$(mktemp -d "${TMPDIR:-/tmp}/vremote-voice-tests.XXXXXX")"
 trap 'rm -rf "$OUTPUT"' EXIT
 swiftc \
+  "$ROOT/Sources/vRemote/RemoteVoiceSupport.swift" \
   "$ROOT/Sources/vRemote/AudioResourceLease.swift" \
   "$ROOT/SelfTests/AudioResourceLeaseTests.swift" \
   "$ROOT/Sources/vRemote/ATVVStreamLifecycle.swift" \

@@ -47,6 +47,66 @@ struct ChromecastArchiveTests {
         }
         let original = ChromecastSettingsArchive.snapshot()
         defer { ChromecastSettingsArchive.restore(original) }
+        // Older Chromecast archives can include retired mapping fields. They
+        // import only current settings, never recreate an X6 model or overwrite
+        // historical preferences on disk, including opaque/obsolete payloads.
+        let retiredOnDisk: [String: Any] = [
+            "remoteMappingEnabled.x6": true,
+            "remoteMapping.x6.k52": "commandV",
+            "remoteMapping.x6.k52.doubleClick": "custom",
+            "remoteMapping.x6.k52.longPress": "launchApplication",
+            "remoteCustomMapping.x6.k52.doubleClick": Data("saved shortcut".utf8),
+            "remoteApplicationMapping.x6.k52.longPress": Data("saved application".utf8),
+            "remoteMappingHoldRepeat.x6.k52": false
+        ]
+        let defaults = UserDefaults.standard
+        let originalRetired = defaults.dictionaryRepresentation().filter { retiredOnDisk[$0.key] != nil }
+        defer {
+            for key in retiredOnDisk.keys {
+                if let value = originalRetired[key] { defaults.set(value, forKey: key) }
+                else { defaults.removeObject(forKey: key) }
+            }
+        }
+        for (key, value) in retiredOnDisk { defaults.set(value, forKey: key) }
+        func assertRetiredPreferencesUnchanged() {
+            let remaining = defaults.dictionaryRepresentation().filter { retiredOnDisk[$0.key] != nil }
+            precondition(NSDictionary(dictionary: retiredOnDisk).isEqual(to: remaining))
+        }
+        let mixedArchive: [String: Any] = [
+            "remoteMapping.chromecast.03": "commandC",
+            "remoteMappingEnabled.chromecast": true,
+            "remoteMappingEnabled.x6": false,
+            "remoteMapping.x6.k52": "removedTarget",
+            "remoteMapping.x6.k52.doubleClick": "custom",
+            "remoteMapping.x6.k52.longPress": "launchApplication",
+            "remoteCustomMapping.x6.k52.doubleClick": ["obsolete": "payload"],
+            "remoteApplicationMapping.x6.k52.longPress": Data("obsolete payload".utf8),
+            "remoteMappingHoldRepeat.x6.k52": "obsolete value"
+        ]
+        let migrated = try ChromecastSettingsArchive.validate(archive(mixedArchive))
+        precondition(migrated.count == 2 && migrated.keys.allSatisfy(ChromecastSettingsArchive.allowed))
+        precondition(migrated["remoteMapping.chromecast.03"] as? String == "commandC")
+        ChromecastSettingsArchive.restore(migrated)
+        precondition(defaults.string(forKey: "remoteMapping.chromecast.03") == "commandC")
+        precondition(defaults.bool(forKey: "remoteMappingEnabled.chromecast"))
+        assertRetiredPreferencesUnchanged()
+        let exportedRoot = try PropertyListSerialization.propertyList(from: ChromecastSettingsArchive.exportData(), format: nil) as! [String: Any]
+        let exportedSettings = exportedRoot["settings"] as! [String: Any]
+        precondition(exportedSettings.keys.allSatisfy(ChromecastSettingsArchive.allowed), "export must omit retired fields before validation")
+        precondition(retiredOnDisk.keys.allSatisfy { !ChromecastSettingsArchive.allowed($0) })
+        // The write boundary also ignores retired data passed directly to it.
+        ChromecastSettingsArchive.restore(mixedArchive)
+        assertRetiredPreferencesUnchanged()
+        ChromecastSettingsArchive.restore([:])
+        assertRetiredPreferencesUnchanged()
+        try rejects(["remoteMapping.x6.k52": "arrowUp", "remoteMapping.chromecast.03": "unknown"])
+        try rejects(["remoteMapping.x6.k52": "arrowUp", "unrelatedSetting": "oops"])
+        for key in ["remoteMapping.x6.", "remoteMapping.x6extra.k52", "remoteMappingEnabled.x6.extra", "x6UnknownSetting"] {
+            try rejects([key: true])
+        }
+        let tooManyRetired: [String: Any] = Dictionary(uniqueKeysWithValues: (0..<300).map { ("remoteMapping.x6.key\($0)", "disabled") })
+        try rejects(tooManyRetired)
+        try rejects(["remoteCustomMapping.x6.k52": Data(repeating: 0, count: 1_000_000)])
         DockVisibilityPreference.setVisible(true)
         AppAppearance.set(.dark)
         try RemoteDisplayName.set("客厅遥控器 🎤")
@@ -105,6 +165,7 @@ struct ChromecastArchiveTests {
         _ = try ChromecastSettingsArchive.validate(archive(["remoteMapping.chromecast.03.longPress": "launchApplication", "remoteApplicationMapping.chromecast.03.longPress": app]))
         let unsafe = try JSONEncoder().encode(RemoteApplicationShortcut(bundleIdentifier: nil, path: "/bin/sh", name: "shell"))
         try rejects(["remoteApplicationMapping.chromecast.03": unsafe])
-        print("PASS: archive versions, device scope, field types and mapping payloads")
+        assertRetiredPreferencesUnchanged()
+        print("PASS: archive versions, device scope, field types, mapping payloads and retired-field isolation")
     }
 }

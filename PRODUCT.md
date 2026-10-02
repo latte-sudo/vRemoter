@@ -1,28 +1,30 @@
-# Chromecast first-round development
-
-See [current scope](docs/CHROMECAST_FIRST_ROUND.md) and [reuse ledger](docs/REUSE_AND_REPLACEMENT_LEDGER.md). This branch supersedes the original dual-input/X6 product direction below for active runtime and UI.
-
-# Current product direction
+# Chromecast product scope
 
 vRemoter is a focused macOS 12+ utility for Chromecast Voice Remote audio and
-Mac shortcuts. The active UI follows approved HTML v6, implemented in SwiftUI:
+Mac shortcuts. The SwiftUI interface uses approved HTML v7 as its current design reference:
 seven-step onboarding and Voice & Audio / Remote / Permissions & Diagnostics /
-Settings navigation. The existing real mapping canvas is preserved.
+Settings navigation. The real photo-based mapping canvas is shared by setup and
+settings.
 
 The remote and the chosen speech tool have independent hold/toggle semantics.
 vRemoter transports audio and sends matching trigger keys; recognition belongs
 to the target tool. Actual PCM, safe end-of-session handling and human recognition
-confirmation are separate facts. Never infer transcription from connectivity or
-a test tone.
+confirmation are separate facts. Connectivity and test tones do not prove speech
+recognition.
 
-- Keep transport/shortcut/resource safety and existing customized mappings
+- Preserve transport/shortcut/resource safety and customized Chromecast mappings
 - Expose real global voice state, input level, elapsed time and an accessible stop
 - Require explicit import/reset confirmation and offer export first
-- Respect light/dark/system appearance, Reduce Motion, keyboard and VoiceOver
-- Keep Mac microphone capture disabled in this Chromecast-focused runtime
-- Keep identity binding, multiple remotes/hosts and new driver distribution out
-  of this change; see TODO.md and the license/ownership inventory
+- Respect Light/Dark/System appearance, Reduce Motion, keyboard and VoiceOver
+- Keep Mac microphone capture disabled, including upgrades
+- Keep multi-device/host binding, Windows/phone support, macros, per-application
+  profiles, transcript history and new driver distribution outside current scope
 
-The previous dual-input/X6 mixer direction and promotional services are historical,
-not active UI requirements. Shared legacy-named types and tests can remain where
-removing them would risk the current transport or existing preference isolation.
+The X6 transport/controller/profile and frozen dual-input/mixer design are removed.
+Shared keyboard observation and voice interfaces continue to support Chromecast;
+old on-disk preferences are not erased. Existing icons and brand identity remain
+pending an explicit release decision.
+
+See [architecture](docs/NATIVE_INTERFACE_IMPLEMENTATION.md),
+[release acceptance](docs/CHROMECAST_ACCEPTANCE.md), [deferred work](TODO.md),
+and [provenance and licensing](docs/PROJECT_OWNERSHIP_AND_LICENSES.md).

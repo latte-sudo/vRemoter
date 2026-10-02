@@ -2,6 +2,9 @@ import Foundation
 
 /// A bounded, versioned configuration archive. Never includes logs, recordings,
 /// Bluetooth UUIDs, permissions, credentials, or launch-agent state.
+/// Version 1 Chromecast archives may contain retired X6 mapping fields. Import
+/// discards only those known fields; export and restore remain Chromecast-only.
+/// Existing retired preferences on disk are neither interpreted nor removed.
 enum ChromecastSettingsArchive {
     static let version = 1
     static let voiceKey = "voiceConfiguration.v1"
@@ -11,6 +14,14 @@ enum ChromecastSettingsArchive {
         key.hasPrefix("remoteCustomMapping.chromecast.") ||
         key.hasPrefix("remoteApplicationMapping.chromecast.") ||
         key.hasPrefix("remoteMappingHoldRepeat.chromecast.") || key == "remoteMappingEnabled.chromecast"
+    }
+    private static func isRetiredMappingKey(_ key: String) -> Bool {
+        // Import-only compatibility, not a supported profile or preference API.
+        if key == "remoteMappingEnabled.x6" { return true }
+        return ["remoteMapping.x6.", "remoteCustomMapping.x6.",
+                "remoteApplicationMapping.x6.", "remoteMappingHoldRepeat.x6."].contains {
+            key.hasPrefix($0) && key.count > $0.count
+        }
     }
     static func snapshot() -> [String: Any] {
         UserDefaults.standard.dictionaryRepresentation().filter { allowed($0.key) }
@@ -33,8 +44,11 @@ enum ChromecastSettingsArchive {
               let root = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
               root["schemaVersion"] as? Int == version,
               root["device"] as? String == "chromecast",
-              let values = root["settings"] as? [String: Any], values.count < 300,
-              values.keys.allSatisfy(allowed) else { throw ArchiveError.invalid }
+              let archivedValues = root["settings"] as? [String: Any], archivedValues.count < 300,
+              archivedValues.keys.allSatisfy({ allowed($0) || isRetiredMappingKey($0) }) else { throw ArchiveError.invalid }
+        // Discard obsolete values before interpreting payloads. The complete
+        // archive is still subject to the byte and field-count bounds above.
+        let values = archivedValues.filter { allowed($0.key) }
         for (key, value) in values {
             guard value is String || value is NSNumber || value is Data else { throw ArchiveError.invalid }
             if let text = value as? String, text.count > 4096 { throw ArchiveError.invalid }
