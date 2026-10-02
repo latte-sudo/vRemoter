@@ -2,6 +2,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p .build/chromecast-tests
+swiftc Sources/vRemote/ChromecastMappingLayout.swift SelfTests/ChromecastMappingLayoutTests.swift -o .build/chromecast-tests/mapping-layout
+.build/chromecast-tests/mapping-layout
 swiftc Sources/vRemote/AudioRouteConfiguration.swift SelfTests/AudioRouteConfigurationTests.swift -o .build/chromecast-tests/audio
 .build/chromecast-tests/audio
 swiftc Sources/vRemote/DockVisibility.swift SelfTests/DockVisibilityTests.swift -o .build/chromecast-tests/dock

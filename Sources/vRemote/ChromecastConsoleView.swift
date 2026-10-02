@@ -17,7 +17,7 @@ struct ChromecastConsoleView: View {
     @State private var testSessionBaseline = 0
     @State private var testArmed = false
     @State private var confirmedSpeech = false
-    @State private var selectedButton = "03"
+    @State private var selectedButton = "07"
     @State private var selectedGesture: RemoteButtonGesture?
     @State private var editorRevision = 0
     @State private var permissionCheckResult = "尚未重新检查"
@@ -87,7 +87,7 @@ struct ChromecastConsoleView: View {
         .onChange(of: model.bleConnected) { connected in if !connected { invalidateTest() } }
         .onChange(of: editorRevision) { _ in
             DispatchQueue.main.async {
-                withAnimation { scroll.scrollTo("chromecast-inline-editor", anchor: .bottom) }
+                withAnimation { scroll.scrollTo("chromecast-inline-editor", anchor: .top) }
             }
         }
         }
@@ -284,35 +284,23 @@ struct ChromecastConsoleView: View {
     }
     private var mapping: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("普通按键配置").font(.headline)
-            Toggle("启用 Chromecast 按键映射", isOn: Binding(get: { mappingStore.isEnabled(.chromecast) }, set: { model.setRemoteMappingEnabled($0, remote: .chromecast) }))
-            Text("每张卡片显示当前单击、双击和长按动作。点击动作在下方编辑；点击照片上的圆点定位对应按键。绿色表示刚收到按键报告。")
-                .font(.callout)
-            HStack(alignment: .center, spacing: 12) {
-                mappingColumn(["03", "05", "07", "0B", "0A", "0E", "01"])
-                VStack(spacing: 10) {
-                    ChromecastKeyMap(selected: $selectedButton, observed: model.lastButtonID)
-                        .frame(width: 240, height: 360)
-                    Text("Chromecast Voice Remote\n正面与侧面音量键").font(.caption).multilineTextAlignment(.center)
-                    Text("已定位：\(RemoteProfiles.chromecastButtons.first(where: { $0.id == selectedButton })?.title ?? selectedButton)")
-                        .font(.caption).foregroundColor(.accentColor)
-                    if let observed = model.lastButtonID {
-                        Label("收到：\(RemoteProfiles.chromecastButtons.first(where: { $0.id == observed })?.title ?? observed)", systemImage: "waveform")
-                            .font(.caption).foregroundColor(.green)
-                    }
-                }
-                mappingColumn(["06", "04", "0C", "0D", "08", "0F", "11"])
-            }
-            HStack(alignment: .top) {
-                Image(systemName: "mic.fill").foregroundColor(model.voiceActive ? .green : .accentColor)
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("语音键 · 独立配置").fontWeight(.semibold)
-                    Text(configuration.remoteVoiceMode == .hold ? "当前：按住说话，松开停止" : "当前：按一下开始，再按一下停止")
-                    Text("语音键不配置双击、长按或普通快捷动作，保持开口响应及时。").font(.caption)
-                }
+            HStack(spacing: 16) {
+                Text("按键映射").font(.title2).bold()
+                Toggle("自定义按键", isOn: Binding(get: { mappingStore.isEnabled(.chromecast) }, set: { model.setRemoteMappingEnabled($0, remote: .chromecast) }))
+                    .toggleStyle(.switch)
                 Spacer()
-                Button("设置说话方式") { if setup { step = 4 } else { page = 0 } }
-            }.padding(12).background(Color.accentColor.opacity(0.06)).cornerRadius(10)
+            }
+            Divider()
+            ChromecastMappingCanvas(selectedButton: selectedButton, selectedGesture: selectedGesture,
+                observedButton: model.lastButtonID, voiceActive: model.voiceActive,
+                voiceModeTitle: configuration.remoteVoiceMode == .hold ? "按住说话，松开停止" : "按一下开始，再按一下停止",
+                onSelect: { selectedButton = $0; selectedGesture = nil },
+                onEdit: { button, gesture in
+                    selectedButton = button; selectedGesture = gesture; editorRevision += 1
+                },
+                onVoiceSettings: { if setup { step = 4 } else { page = 0 } })
+            Text("点击单击、双击或长按格子，在下方编辑当前动作；点击照片中的按键定位。绿色表示最近收到的按键报告。")
+                .font(.caption).foregroundColor(.secondary)
             if let gesture = selectedGesture,
                let button = RemoteProfiles.chromecastButtons.first(where: { $0.id == selectedButton && !$0.voiceControlled }) {
                 VStack(alignment: .leading, spacing: 12) {
@@ -336,21 +324,6 @@ struct ChromecastConsoleView: View {
             Button("恢复 Chromecast 默认按键") { mappingStore.reset(.chromecast) }
             Text("修改后自动保存；已有配置会被覆盖，可先在设置页导出备份。").font(.caption)
         }.disabled(model.voiceActive)
-    }
-
-    private func mappingColumn(_ identifiers: [String]) -> some View {
-        VStack(spacing: 8) {
-            ForEach(identifiers, id: \.self) { identifier in
-                if let button = RemoteProfiles.chromecastButtons.first(where: { $0.id == identifier }) {
-                    ChromecastMappingCard(button: button, selected: selectedButton == identifier,
-                        observed: model.lastButtonID == identifier, selectedGesture: selectedButton == identifier ? selectedGesture : nil) { gesture in
-                        selectedButton = identifier
-                        selectedGesture = gesture
-                        editorRevision += 1
-                    }
-                }
-            }
-        }.frame(maxWidth: .infinity)
     }
 
     private var settings: some View {
@@ -461,43 +434,6 @@ struct ChromecastConsoleView: View {
     private func open(_ url: String) { if let url = URL(string: url) { NSWorkspace.shared.open(url) } }
 }
 
-private struct ChromecastKeyMap: View {
-    @Binding var selected: String
-    let observed: String?
-    private let points: [(String, CGFloat, CGFloat)] = [
-        ("03",0.37,0.085),("04",0.37,0.265),("05",0.205,0.17),("06",0.535,0.17),("07",0.37,0.17),
-        ("0B",0.255,0.36),("voice",0.475,0.36),("0A",0.255,0.48),("08",0.475,0.48),
-        ("0E",0.255,0.60),("0F",0.475,0.60),("01",0.255,0.71),("11",0.475,0.71),
-        ("0C",0.84,0.18),("0D",0.84,0.30)]
-    var body: some View {
-        GeometryReader { proxy in
-            ZStack {
-                if let image = image {
-                    Image(nsImage: image).resizable().scaledToFit()
-                }
-                ForEach(points, id: \.0) { point in
-                    Button { selected = point.0 } label: {
-                        Circle().fill(selected == point.0 ? Color.accentColor.opacity(0.65) : Color.black.opacity(0.15))
-                            .overlay(Circle().stroke(observed == point.0 ? Color.green : Color.white, lineWidth: observed == point.0 ? 3 : 1))
-                            .frame(width: 26, height: 26)
-                    }.buttonStyle(.plain)
-                        .accessibilityLabel(RemoteProfiles.chromecastButtons.first(where: { $0.id == point.0 })?.title ?? point.0)
-                        .help(RemoteProfiles.chromecastButtons.first(where: { $0.id == point.0 })?.title ?? point.0)
-                        .position(x: proxy.size.width * point.1, y: proxy.size.height * point.2)
-                }
-            }
-        }
-    }
-    private var image: NSImage? {
-        let filename = "chromecast-front-and-volume-enhanced.png"
-        for path in [Bundle.main.resourceURL?.appendingPathComponent("RemoteImages/" + filename),
-                     URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("Resources/RemoteImages/" + filename)].compactMap({ $0 }) {
-            if let image = NSImage(contentsOf: path) { return image }
-        }
-        return nil
-    }
-}
-
 private struct ChromecastGestureEditor: View {
     let button: RemoteButtonDefinition
     let gesture: RemoteButtonGesture
@@ -556,80 +492,5 @@ private struct ChromecastHelpLabel: View {
                 }.padding(18).frame(width: 340)
             }
         }
-    }
-}
-
-private struct ChromecastMappingCard: View {
-    let button: RemoteButtonDefinition
-    let selected: Bool
-    let observed: Bool
-    let selectedGesture: RemoteButtonGesture?
-    let onEdit: (RemoteButtonGesture) -> Void
-    @ObservedObject private var store = RemoteMappingStore.shared
-
-    private var borderColor: Color {
-        if observed { return .green }
-        if selected { return .accentColor }
-        return Color.secondary.opacity(0.25)
-    }
-
-    private var header: some View {
-        HStack(spacing: 5) {
-            Image(systemName: button.symbol).frame(width: 15)
-            Text(button.title).fontWeight(.semibold)
-            Spacer(minLength: 0)
-            if observed { Text("收到").foregroundColor(Color.green).font(.caption2) }
-            else if selected { Image(systemName: "scope").foregroundColor(Color.accentColor) }
-        }.font(.caption)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            header
-            ForEach(RemoteButtonGesture.allCases, id: \.self) { gesture in
-                ChromecastMappingGestureCell(
-                    buttonTitle: button.title,
-                    gesture: gesture,
-                    actionTitle: store.targetTitle(for: button, remote: .chromecast, gesture: gesture),
-                    selected: selectedGesture == gesture,
-                    onEdit: { onEdit(gesture) }
-                )
-            }
-        }
-        .padding(8)
-        .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(9)
-        .overlay(RoundedRectangle(cornerRadius: 9).stroke(borderColor, lineWidth: observed || selected ? 2 : 1))
-    }
-}
-
-private struct ChromecastMappingGestureCell: View {
-    let buttonTitle: String
-    let gesture: RemoteButtonGesture
-    let actionTitle: String
-    let selected: Bool
-    let onEdit: () -> Void
-
-    private var helpText: String { "\(buttonTitle) · \(gesture.title)：\(actionTitle)" }
-    private var accessibilityText: String { "\(buttonTitle)，\(gesture.title)，当前动作：\(actionTitle)，编辑" }
-
-    private var label: some View {
-        HStack(spacing: 5) {
-            Text(gesture.title).foregroundColor(Color.secondary).frame(width: 30, alignment: .leading)
-            Text(actionTitle).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
-            Image(systemName: "pencil").font(.system(size: 9)).foregroundColor(Color.secondary)
-        }
-        .font(.system(size: 11))
-        .padding(.horizontal, 4).padding(.vertical, 2)
-        .background(selected ? Color.accentColor.opacity(0.13) : Color.clear)
-        .cornerRadius(4)
-        .contentShape(Rectangle())
-    }
-
-    var body: some View {
-        Button(action: onEdit) { label }
-            .buttonStyle(.plain)
-            .help(helpText)
-            .accessibilityLabel(accessibilityText)
     }
 }
