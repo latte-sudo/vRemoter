@@ -10,7 +10,12 @@ trap 'rm -rf "$OUTPUT"' EXIT
 swiftc \
   "$ROOT/Sources/vRemote/AudioResourceLease.swift" \
   "$ROOT/SelfTests/AudioResourceLeaseTests.swift" \
+  "$ROOT/Sources/vRemote/ATVVStreamLifecycle.swift" \
+  "$ROOT/Sources/vRemote/ATVV/BridgeError.swift" \
+  "$ROOT/Sources/vRemote/ATVV/ADPCMDecoder.swift" \
+  "$ROOT/Sources/vRemote/ATVV/ATVVProtocol.swift" \
   "$ROOT/Sources/vRemote/ChromecastVoiceStateMachine.swift" \
+  "$ROOT/SelfTests/ChromecastVoice/TransportTests.swift" \
   "$ROOT/Sources/vRemote/VoiceConfiguration.swift" \
   "$ROOT/Sources/vRemote/ChromecastVoiceSessionController.swift" \
   "$ROOT/SelfTests/ChromecastVoice/main.swift" \

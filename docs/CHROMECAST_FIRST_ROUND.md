@@ -40,8 +40,12 @@ bash Tools/test-chromecast-models.sh
 - Import wrong version/device/types, reset/undo, lost application; no partial import
 - Visual/VoiceOver/keyboard navigation on supported macOS and Intel/Apple Silicon
 
-Hardware, actual microphone/recognition, render QA, signing/notarization and installer distribution are not validated by CI. This is a draft development change, not a release-ready binary.
+Hardware, actual microphone/recognition, render QA, signing/notarization and installer distribution are not validated by CI. This is a development change, not a release-ready binary.
 
 ## Session-scoped audio ownership
 
 See [audio resource lifecycle](chromecast-audio-resource-lifecycle.md) for the idle/start/stop contract, bounded target-stop observation, regression coverage, and remaining macOS/hardware acceptance.
+
+## Six-item feedback corrections
+
+See [feedback correction batch](CHROMECAST_FEEDBACK_FIXES.md) for the mapping overview, voice terminology, repeated-cycle transport repair, permission feedback, application launcher, Dock preference, and exact verification boundaries.

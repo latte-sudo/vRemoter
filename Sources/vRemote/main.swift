@@ -66,12 +66,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         savedUUIDFilename: "chromecast-remote-uuid.txt",
         recordingPrefix: "chromecast-remote-voice",
         logTag: "CAST-BLE",
-        resetSessionOnConnect: true
+        resetSessionOnConnect: true,
+        tracksPhysicalVoiceEdges: true
     )
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
         AppStorage.prepare()
+        DockVisibilityController.apply(DockVisibilityPreference.isVisible())
         // This release intentionally supports only remote audio, including upgrades.
         AppStorage.macInputEnabled = false
         AppStorage.remoteInputEnabled = true
@@ -275,6 +276,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
     }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        debugWindow.show()
+        return true
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     func menuWillOpen(_ menu: NSMenu) {
         refreshMenuState()

@@ -57,7 +57,9 @@ final class BLEBridge: NSObject {
 
     private let protocolHandler = ATVVProtocol()
     private var streamID: UInt8 = 0
-    private var isStreaming = false
+    private var streamLifecycle: ATVVStreamLifecycle
+    private var isStreaming: Bool { streamLifecycle.isStreaming }
+    private var ignoredControlCount = 0
     private var levelSumSq: Int64 = 0
     private var levelCount: Int = 0
     private var levelPeak: Int = 0
@@ -84,8 +86,10 @@ final class BLEBridge: NSObject {
         savedUUIDFilename: String,
         recordingPrefix: String,
         logTag: String,
-        resetSessionOnConnect: Bool
+        resetSessionOnConnect: Bool,
+        tracksPhysicalVoiceEdges: Bool = false
     ) {
+        self.streamLifecycle = ATVVStreamLifecycle(tracksPhysicalVoiceEdges: tracksPhysicalVoiceEdges)
         self.nameHint = nameHint
         self.savedUUIDPath = URL(
             fileURLWithPath: Self.appSupportDirectory
@@ -121,6 +125,7 @@ final class BLEBridge: NSObject {
         if let peripheral {
             central.cancelPeripheralConnection(peripheral)
         }
+        streamLifecycle.reset()
         self.peripheral = nil
         audioChar = nil
         commandChar = nil
@@ -141,6 +146,8 @@ final class BLEBridge: NSObject {
     func openMicrophone(
         bypassDebounce: Bool = false
     ) -> RemoteMicrophoneOpenResult {
+        // A closing stream is not confirmation of a new host-open request.
+        if streamLifecycle.isClosing && isStreaming { return .retryAfter(0.5) }
         guard !isStreaming else { return .alreadyStreaming }
         guard peripheral != nil, commandChar != nil else {
             print("[\(logTag)] micOpen waiting for writable characteristic")
@@ -158,6 +165,7 @@ final class BLEBridge: NSObject {
             guard writeCommand(try protocolHandler.micOpenCommand()) else {
                 return .retryAfter(0.15)
             }
+            streamLifecycle.requestedOpen()
             lastMicOpenAt = now
             print("[\(logTag)] TX micOpen requested by gesture")
             return .sent
@@ -188,6 +196,8 @@ final class BLEBridge: NSObject {
         // X6 does not reliably stop ATVV by itself; leaving keep-alive active
         // saturates its BLE link and delays/drops ordinary HID keyboard data.
         stopKeepAliveTimer()
+        streamLifecycle.requestedClose()
+        let closeGeneration = streamLifecycle.generation
         do {
             writeCommand(
                 try protocolHandler.micCloseCommand(streamID: streamID)
@@ -195,7 +205,7 @@ final class BLEBridge: NSObject {
             print("[\(logTag)] TX micClose requested by gesture")
             closeTimeoutWorkItem?.cancel()
             let timeout = DispatchWorkItem { [weak self] in
-                guard let self, self.isStreaming else { return }
+                guard let self, self.streamLifecycle.acceptsCloseTimeout(generation: closeGeneration) else { return }
                 print("[\(self.logTag)] AUDIO_STOP timeout; forcing local cleanup")
                 self.finishAudioStreamLocally(reason: 0xFE)
             }
@@ -330,7 +340,7 @@ final class BLEBridge: NSObject {
     /// streaming to keep the device's audio stream open during long
     /// voice-key holds.
     private func sendKeepAlive() {
-        guard isStreaming, let s = protocolHandler.codec else { return }
+        guard streamLifecycle.acceptsPCM, let s = protocolHandler.codec else { return }
         do {
             let cmd = try protocolHandler.keepAliveCommand(streamID: streamID)
             writeCommand(cmd)
@@ -366,17 +376,15 @@ final class BLEBridge: NSObject {
     /// Completes the local side of an ATVV stream even when the peripheral
     /// drops the matching AUDIO_STOP notification.  This is deliberately
     /// idempotent so an eventual late AUDIO_STOP is harmless.
-    private func finishAudioStreamLocally(reason: UInt8) {
+    private func finishAudioStreamLocally(reason: UInt8, notifyControl: Bool = true) {
         closeTimeoutWorkItem?.cancel()
         closeTimeoutWorkItem = nil
         let wasStreaming = isStreaming
-        isStreaming = false
+        let shouldNotifyControl = notifyControl && !(streamLifecycle.tracksPhysicalVoiceEdges
+            && streamLifecycle.isClosing && reason != 0x02)
+        streamLifecycle.finish()
         protocolHandler.endAudioStream()
         stopKeepAliveTimer()
-        if wasStreaming {
-            notifyStreaming(false)
-            onAudioStopped?(reason)
-        }
         levelSumSq = 0
         levelCount = 0
         levelPeak = 0
@@ -401,6 +409,11 @@ final class BLEBridge: NSObject {
             "clipped=\(streamClippedSampleCount) syncs=\(streamAudioSyncCount)"
         )
         print("[\(logTag)] AUDIO_STOP reason=0x\(String(reason, radix: 16))")
+        // Notify only after teardown: release callbacks can synchronously reopen.
+        if wasStreaming {
+            notifyStreaming(false)
+            if shouldNotifyControl { onAudioStopped?(reason) }
+        }
     }
 }
 
@@ -469,6 +482,7 @@ extension BLEBridge: CBCentralManagerDelegate {
         print("[\(logTag)] 断开: \(error?.localizedDescription ?? "ok")")
         onConnectionChanged?(false)
         finishAudioStreamLocally(reason: 0xFC)
+        streamLifecycle.reset()
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
             self?.beginScan()
         }
@@ -600,11 +614,14 @@ extension BLEBridge: CBPeripheralDelegate {
                 print("[\(logTag)] caps error: \(error.localizedDescription)")
             }
         case .audioStart(let reason, let codec, let sid):
+            guard streamLifecycle.start(reason: reason, streamID: sid) else {
+                logIgnoredControl("START", reason: reason)
+                return
+            }
             closeTimeoutWorkItem?.cancel()
             closeTimeoutWorkItem = nil
             protocolHandler.beginAudioStream(codec: codec)
             streamID = sid
-            isStreaming = true
             notifyStreaming(true)
             diagFrameCount = 0
             streamFrameCount = 0
@@ -614,6 +631,7 @@ extension BLEBridge: CBPeripheralDelegate {
             streamClippedSampleCount = 0
             streamAudioSyncCount = pendingAudioSyncCount
             pendingAudioSyncCount = 0
+            wavRecorder?.close()
             wavRecorder = AppStorage.recordingEnabled
                 ? WavRecorder.createNext(prefix: recordingPrefix)
                 : nil
@@ -625,37 +643,18 @@ extension BLEBridge: CBPeripheralDelegate {
                 " streamID=\(sid)"
             )
         case .audioStop(let reason):
-            finishAudioStreamLocally(reason: reason)
-            /*
-            isStreaming = false
-            protocolHandler.endAudioStream()
-            notifyStreaming(false)
-            levelSumSq = 0
-            levelCount = 0
-            levelPeak = 0
-            onLevel?(-120, 0)
-            diagFrameCount = 0
-            stopKeepAliveTimer()
-            if let w = wavRecorder {
-                w.close()
-                print("[WAV] closed \(w.filename)")
-                wavRecorder = nil
+            switch streamLifecycle.stop(reason: reason) {
+            case .ignore:
+                logIgnoredControl("STOP", reason: reason)
+            case .releaseOnly:
+                // Audio may already be idle after MIC_CLOSE. The controller
+                // still needs this edge to accept the next physical press.
+                onAudioStopped?(reason)
+            case .finishLocally:
+                finishAudioStreamLocally(reason: reason, notifyControl: false)
+            case .finishStream:
+                finishAudioStreamLocally(reason: reason)
             }
-            let streamRMS = streamSampleCount > 0
-                ? sqrt(Double(streamSumSquares) / Double(streamSampleCount))
-                : 0
-            let streamDB = streamRMS > 0
-                ? 20.0 * log10(streamRMS / 32768.0)
-                : -120
-            print(
-                "[\(logTag)] AUDIO_SUMMARY streamID=\(streamID) " +
-                "frames=\(streamFrameCount) samples=\(streamSampleCount) " +
-                "peak=\(streamPeak) rms=\(Int(streamRMS.rounded())) " +
-                "db=\(String(format: "%.1f", streamDB)) " +
-                "clipped=\(streamClippedSampleCount) syncs=\(streamAudioSyncCount)"
-            )
-            print("[\(logTag)] AUDIO_STOP reason=0x\(String(format: "%02x", reason))")
-            */
         case .audioSync(let codec, let sequence, let pred, let stepIndex):
             protocolHandler.applyAudioSync(
                 codec: codec,
@@ -700,6 +699,13 @@ extension BLEBridge: CBPeripheralDelegate {
         }
     }
 
+    private func logIgnoredControl(_ event: String, reason: UInt8) {
+        ignoredControlCount += 1
+        // Bound noisy duplicate diagnostics without losing aggregate evidence.
+        guard ignoredControlCount <= 5 || ignoredControlCount.isMultiple(of: 100) else { return }
+        print("[\(logTag)] ignored \(event) reason=\(reason) count=\(ignoredControlCount) generation=\(streamLifecycle.generation) physicalDown=\(streamLifecycle.physicalButtonDown) closing=\(streamLifecycle.isClosing)")
+    }
+
     private func resetStaleSessionIfNeeded() {
         guard resetSessionOnConnect, !hasResetSessionForConnection else {
             return
@@ -712,7 +718,7 @@ extension BLEBridge: CBPeripheralDelegate {
     }
 
     private func handleAudio(_ data: Data) {
-        guard isStreaming, let frame = protocolHandler.decodeAudio(data) else { return }
+        guard streamLifecycle.acceptsPCM, let frame = protocolHandler.decodeAudio(data) else { return }
         if frame.samples.isEmpty { return }
         onPCMReceived?()
         let framePeak = frame.samples.reduce(into: 0) {

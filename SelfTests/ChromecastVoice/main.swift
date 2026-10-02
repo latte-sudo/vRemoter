@@ -517,5 +517,6 @@ do {
     h.controller.stop()
 }
 
+runTransportVoiceTests()
 runAudioResourceLeaseTests()
 print("All Chromecast voice regression tests passed.")

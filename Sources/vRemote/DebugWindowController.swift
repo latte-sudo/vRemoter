@@ -156,7 +156,17 @@ enum LogoAsset {
         for candidate in candidates.compactMap({ $0 }) {
             if let image = NSImage(contentsOf: candidate) { return image }
         }
-        return NSImage(size: NSSize(width: 64, height: 64))
+        // A development checkout or missing packaged PNG must never produce a blank Dock icon.
+        let image = NSImage(size: NSSize(width: 128, height: 128))
+        image.lockFocus()
+        NSColor.systemIndigo.setFill()
+        NSBezierPath(roundedRect: NSRect(x: 4, y: 4, width: 120, height: 120), xRadius: 28, yRadius: 28).fill()
+        let text = "vR" as NSString
+        text.draw(at: NSPoint(x: 25, y: 36), withAttributes: [
+            .font: NSFont.boldSystemFont(ofSize: 50), .foregroundColor: NSColor.white
+        ])
+        image.unlockFocus()
+        return image
     }()
 }
 
@@ -258,6 +268,10 @@ final class ConsoleViewModel: ObservableObject {
     @Published var accessibilityGranted = false
     @Published var inputMonitoringGranted = false
     @Published var bluetoothGranted = false
+    @Published var bluetoothPermissionStatus = "待确认"
+    @Published var permissionCheckedAt: Date?
+    var accessibilityPermissionStatus: String { accessibilityGranted ? "已授权" : "未授权" }
+    var inputMonitoringPermissionStatus: String { inputMonitoringGranted ? "已授权" : "未授权" }
     @Published var x6Connected = false
     @Published var chromecastConnected = false
     @Published var inputTriggerKey = AppStorage.inputTriggerKey
@@ -320,6 +334,7 @@ final class ConsoleViewModel: ObservableObject {
     }
 
     func refreshPermissions() {
+        permissionCheckedAt = Date()
         let demoMode = ProcessInfo.processInfo.environment["VREMOTER_PERMISSION_DEMO"] == "1"
             || CommandLine.arguments.contains("--permission-demo")
         if demoMode {
@@ -327,15 +342,23 @@ final class ConsoleViewModel: ObservableObject {
             accessibilityGranted = false
             inputMonitoringGranted = false
             bluetoothGranted = false
+            bluetoothPermissionStatus = "待确认（演示）"
             return
         }
         microphoneGranted = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
         accessibilityGranted = AXIsProcessTrusted()
         inputMonitoringGranted = CGPreflightListenEventAccess()
         if #available(macOS 11.0, *) {
-            bluetoothGranted = CBManager.authorization == .allowedAlways
+            switch CBManager.authorization {
+            case .allowedAlways: bluetoothGranted = true; bluetoothPermissionStatus = "已授权"
+            case .denied: bluetoothGranted = false; bluetoothPermissionStatus = "未授权"
+            case .notDetermined: bluetoothGranted = false; bluetoothPermissionStatus = "待确认"
+            case .restricted: bluetoothGranted = false; bluetoothPermissionStatus = "受系统限制"
+            @unknown default: bluetoothGranted = false; bluetoothPermissionStatus = "未知状态"
+            }
         } else {
             bluetoothGranted = true
+            bluetoothPermissionStatus = "无需单独授权"
         }
         evaluateDonationPrompt()
     }

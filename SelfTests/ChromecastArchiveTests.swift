@@ -21,6 +21,17 @@ struct ChromecastArchiveTests {
         }
         _ = try ChromecastSettingsArchive.validate(archive([:]))
         _ = try ChromecastSettingsArchive.validate(archive(["remoteMapping.chromecast.03": "arrowUp", "remoteMappingEnabled.chromecast": true]))
+        _ = try ChromecastSettingsArchive.validate(archive([DockVisibilityPreference.key: true]))
+        try rejects([DockVisibilityPreference.key: "true"])
+        try rejects([DockVisibilityPreference.key: 2])
+        let original = ChromecastSettingsArchive.snapshot()
+        defer { ChromecastSettingsArchive.restore(original) }
+        DockVisibilityPreference.setVisible(true)
+        let exported = try ChromecastSettingsArchive.validate(ChromecastSettingsArchive.exportData())
+        ChromecastSettingsArchive.restore([:])
+        precondition(!DockVisibilityPreference.isVisible())
+        ChromecastSettingsArchive.restore(exported)
+        precondition(DockVisibilityPreference.isVisible())
         try rejects([:], version: 2)
         try rejects([:], device: "x6")
         try rejects(["unrelatedSetting": "oops"])

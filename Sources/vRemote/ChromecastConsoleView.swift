@@ -11,16 +11,22 @@ struct ChromecastConsoleView: View {
     @State private var routeRevision = 0
     @State private var routeFingerprint = ""
     @State private var message = ""
+    @State private var launchingVoiceApplication = false
     @State private var testText = ""
     @State private var testAudioBaseline = 0
     @State private var testSessionBaseline = 0
     @State private var testArmed = false
     @State private var confirmedSpeech = false
     @State private var selectedButton = "03"
+    @State private var selectedGesture: RemoteButtonGesture?
+    @State private var editorRevision = 0
+    @State private var permissionCheckResult = "尚未重新检查"
+    @ObservedObject private var mappingStore = RemoteMappingStore.shared
     private let steps = ["欢迎", "连接遥控器", "权限", "音频通道", "语音工具", "实际说话测试", "普通按键", "完成"]
     private var audio: AudioPipe { AudioPipe.shared }
 
     var body: some View {
+        ScrollViewReader { scroll in
         VStack(alignment: .leading, spacing: 18) {
             HStack {
                 VStack(alignment: .leading) {
@@ -79,6 +85,12 @@ struct ChromecastConsoleView: View {
         }
         .onChange(of: step) { value in UserDefaults.standard.set(value, forKey: "chromecast.onboarding.step") }
         .onChange(of: model.bleConnected) { connected in if !connected { invalidateTest() } }
+        .onChange(of: editorRevision) { _ in
+            DispatchQueue.main.async {
+                withAnimation { scroll.scrollTo("chromecast-inline-editor", anchor: .bottom) }
+            }
+        }
+        }
     }
 
     private var onboarding: some View {
@@ -152,15 +164,30 @@ struct ChromecastConsoleView: View {
     private var permissions: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("需要的权限").font(.headline)
-            permissionRow("蓝牙：连接遥控器", granted: model.bluetoothGranted, kind: .bluetooth)
-            permissionRow("辅助功能：发送语音快捷键", granted: model.accessibilityGranted, kind: .accessibility)
-            permissionRow("输入监控：接收遥控器按键", granted: model.inputMonitoringGranted, kind: .inputMonitoring)
+            permissionRow("蓝牙：连接遥控器", granted: model.bluetoothGranted, status: model.bluetoothPermissionStatus, kind: .bluetooth)
+            permissionRow("辅助功能：发送语音快捷键", granted: model.accessibilityGranted, status: model.accessibilityPermissionStatus, kind: .accessibility)
+            permissionRow("输入监控：接收遥控器按键", granted: model.inputMonitoringGranted, status: model.inputMonitoringPermissionStatus, kind: .inputMonitoring)
             Text("本轮只使用遥控器音频，不采集 Mac 麦克风。语音工具自身的麦克风权限由该工具申请。驱动安装需要管理员确认；这里不会自动安装或重启音频服务。")
-            Button("重新检查并连接") { model.refreshPermissions(); model.onReconnectInputs?(); audio.refreshOutputRoutes() }.disabled(model.voiceActive)
+            HStack {
+                Button("重新检查权限") { checkPermissions() }
+                Button("重新连接遥控器") { model.onReconnectInputs?() }.disabled(model.voiceActive)
+            }
+            Text(permissionCheckResult).font(.callout)
+            if let checked = model.permissionCheckedAt {
+                Text("上次检查：\(checked.formatted(date: .abbreviated, time: .standard))").font(.caption).foregroundColor(.secondary)
+            }
+            Text("修改系统权限后，请返回这里重新检查；重新连接只重试遥控器通道，不会授予权限。").font(.caption)
         }
     }
-    private func permissionRow(_ title: String, granted: Bool, kind: PermissionKind) -> some View {
-        HStack { Label(title, systemImage: granted ? "checkmark.circle.fill" : "exclamationmark.circle"); Spacer(); Button("打开设置") { model.openSettings(for: kind) } }
+    private func permissionRow(_ title: String, granted: Bool, status: String, kind: PermissionKind) -> some View {
+        HStack {
+            Label(title, systemImage: granted ? "checkmark.circle.fill" : "exclamationmark.circle")
+            Spacer()
+            Text(status).fontWeight(.medium)
+                .foregroundColor(granted ? .green : .orange)
+            Button("打开设置") { model.openSettings(for: kind) }
+        }
+        .accessibilityElement(children: .contain)
     }
     private var audioSettings: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -195,28 +222,49 @@ struct ChromecastConsoleView: View {
                 Text("其他工具（自定义）").tag(VoiceInputTool.custom)
             }
             if configuration.inputTool == .custom {
-                TextField("应用 Bundle ID，例如 com.example.voice", text: $configuration.customBundleIdentifier)
+                HStack {
+                    Button("选择语音应用…") { chooseVoiceApplication() }
+                    if !configuration.customApplicationPath.isEmpty {
+                        Text(URL(fileURLWithPath: configuration.customApplicationPath).deletingPathExtension().lastPathComponent)
+                        Button("清除选择") { configuration.customApplicationPath = "" }
+                    }
+                }
+                TextField("应用 Bundle ID（高级，可由选择应用自动填写）", text: $configuration.customBundleIdentifier)
                 Text("自定义工具的兼容性需要实际测试。vRemoter 不执行语音识别，也不自动修改该工具设置。").font(.caption)
             }
-            Button("打开所选语音工具") {
-                if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: configuration.targetBundleIdentifier) {
-                    NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) { _, error in
-                        if let error { DispatchQueue.main.async { message = error.localizedDescription } }
+            Button(launchingVoiceApplication ? "正在打开…" : "打开所选语音工具") {
+                launchingVoiceApplication = true
+                message = "正在请求系统打开所选语音工具…"
+                VoiceApplicationLauncher().launch(configuration: configuration) { result in
+                    DispatchQueue.main.async {
+                        launchingVoiceApplication = false
+                        switch result {
+                        case .success(let success): message = success.message
+                        case .failure(let error): message = error.localizedDescription
+                        }
                     }
-                } else { message = "未找到所选工具，请先安装或手动打开，并确认 Bundle ID。" }
-            }
-            Picker("遥控器操作方式", selection: $configuration.remoteVoiceMode) {
+                }
+            }.disabled(launchingVoiceApplication)
+            ChromecastHelpLabel(title: "1. 手里的遥控器：如何操作语音键", explanation: "这是你按实体遥控器上黑色语音键的方式。选择按住说话时，从按下到松开是一句话；选择按一下开始时，第二次按下才结束。它与电脑软件的录音快捷键模式独立。")
+            Picker("实体语音键", selection: $configuration.remoteVoiceMode) {
                 Text("按一下开始，再按一下停止").tag(RemoteVoiceMode.toggle)
                 Text("按住说话，松开停止").tag(RemoteVoiceMode.hold)
             }
-            Picker("语音工具的快捷键行为", selection: $configuration.inputToolTriggerMode) {
+            Text(configuration.remoteVoiceMode == .hold ? "例：按住遥控器语音键说「你好」，说完松开。" : "例：按一下遥控器语音键，说「你好」，再按一下结束。")
+                .font(.callout).foregroundColor(.secondary)
+            ChromecastHelpLabel(title: "2. 电脑上的语音工具：录音快捷键模式", explanation: "请先打开豆包输入法或自定义语音工具的设置，查看它的录音快捷键是按住录音还是按一次开始、再按一次结束，然后在这里选同一种模式。vRemoter 会把实体遥控器的操作转换为工具需要的快捷键按下与松开。")
+            Picker("工具内的录音模式", selection: $configuration.inputToolTriggerMode) {
                 Text("按一下切换开始 / 停止").tag(InputToolTriggerMode.toggle)
                 Text("按住快捷键录音，松开停止").tag(InputToolTriggerMode.hold)
             }
-            Picker("匹配工具内设置的快捷键", selection: $configuration.triggerKey) {
+            Text(configuration.inputToolTriggerMode == .hold ? "例：工具要求一直按住 Fn 才录音，就选「按住快捷键录音」。这里不会改变遥控器的按法。" : "例：工具要求按一下 Fn 开始、再按一下 Fn 结束，就选「按一下切换」。这里不会改变遥控器的按法。")
+                .font(.callout).foregroundColor(.secondary)
+            ChromecastHelpLabel(title: "3. 与工具内设置一致的快捷键", explanation: "这里发送的按键必须与语音工具里设置的录音快捷键完全相同。例如工具内是 Fn，这里也选 Fn；如果工具使用其他快捷键，请先确认支持和兼容性，再实际说话测试。")
+            Picker("录音快捷键", selection: $configuration.triggerKey) {
                 ForEach(InputTriggerKey.allCases) { Text($0.title).tag($0) }
             }
-            Text("请在所选工具里选择同一个虚拟麦克风，并让快捷键和行为与这里一致。遥控器操作方式与工具快捷键行为是两个独立设置。")
+            Text("最后：在语音工具中把麦克风选为上方同一个虚拟音频设备（例如 vRemoteDr 2ch），打开一个可输入文字的地方，再用遥控器实际说一句话。")
+            Text("可以组合使用：遥控器「按一下开始」＋工具「按住快捷键录音」。vRemoter 负责转换；工具的模式和快捷键仍须在两边匹配。").font(.caption)
         }.disabled(model.voiceActive)
     }
     private var speechTest: some View {
@@ -235,38 +283,76 @@ struct ChromecastConsoleView: View {
         }
     }
     private var mapping: some View {
-        HStack(alignment: .top, spacing: 24) {
-            VStack {
-                ChromecastKeyMap(selected: $selectedButton, observed: model.lastButtonID)
-                    .frame(width: 280, height: 420)
-                Text("点击键位选择配置。亮起表示接收到该按键报告；侧面图为示意。音量 / 电源 / 信源若设置成红外模式，Mac 可能收不到报告。").font(.caption)
-            }.frame(width: 280)
-            VStack(alignment: .leading, spacing: 12) {
-                Text("普通按键配置").font(.headline)
-                Toggle("启用 Chromecast 按键映射", isOn: Binding(get: { RemoteMappingStore.shared.isEnabled(.chromecast) }, set: { model.setRemoteMappingEnabled($0, remote: .chromecast); routeRevision += 1 }))
-                Picker("选择按键", selection: $selectedButton) {
-                    ForEach(RemoteProfiles.chromecastButtons) { Text($0.title).tag($0.id) }
-                }
-                if let button = RemoteProfiles.chromecastButtons.first(where: { $0.id == selectedButton }) {
-                    if button.voiceControlled {
-                        Text("语音键只使用“连接与语音”中的说话方式，不增加双击或长按快捷动作，以免拖慢开口响应。")
-                    } else {
-                        Toggle("按住连发（高级手势存在时暂停）", isOn: Binding(get: {
-                            RemoteMappingStore.shared.holdRepeats(for: button, remote: .chromecast)
-                        }, set: {
-                            RemoteMappingStore.shared.setHoldRepeats($0, for: button, remote: .chromecast); routeRevision += 1
-                        }))
-                        ForEach(RemoteButtonGesture.allCases, id: \.self) { gesture in
-                            ChromecastGestureEditor(button: button, gesture: gesture)
-                        }
+        VStack(alignment: .leading, spacing: 16) {
+            Text("普通按键配置").font(.headline)
+            Toggle("启用 Chromecast 按键映射", isOn: Binding(get: { mappingStore.isEnabled(.chromecast) }, set: { model.setRemoteMappingEnabled($0, remote: .chromecast) }))
+            Text("每张卡片显示当前单击、双击和长按动作。点击动作在下方编辑；点击照片上的圆点定位对应按键。绿色表示刚收到按键报告。")
+                .font(.callout)
+            HStack(alignment: .center, spacing: 12) {
+                mappingColumn(["03", "05", "07", "0B", "0A", "0E", "01"])
+                VStack(spacing: 10) {
+                    ChromecastKeyMap(selected: $selectedButton, observed: model.lastButtonID)
+                        .frame(width: 240, height: 360)
+                    Text("Chromecast Voice Remote\n正面与侧面音量键").font(.caption).multilineTextAlignment(.center)
+                    Text("已定位：\(RemoteProfiles.chromecastButtons.first(where: { $0.id == selectedButton })?.title ?? selectedButton)")
+                        .font(.caption).foregroundColor(.accentColor)
+                    if let observed = model.lastButtonID {
+                        Label("收到：\(RemoteProfiles.chromecastButtons.first(where: { $0.id == observed })?.title ?? observed)", systemImage: "waveform")
+                            .font(.caption).foregroundColor(.green)
                     }
                 }
-                Text("只在配置双击时等待第二次点击。长按动作与按住连发互斥；未配置额外手势时保留立即响应。").font(.caption)
-                Button("恢复 Chromecast 默认按键") { RemoteMappingStore.shared.reset(.chromecast); routeRevision += 1 }
-                Text("修改后自动保存；已有配置会被新配置覆盖，可先在设置页导出备份。").font(.caption)
-            }.disabled(model.voiceActive)
-        }
+                mappingColumn(["06", "04", "0C", "0D", "08", "0F", "11"])
+            }
+            HStack(alignment: .top) {
+                Image(systemName: "mic.fill").foregroundColor(model.voiceActive ? .green : .accentColor)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("语音键 · 独立配置").fontWeight(.semibold)
+                    Text(configuration.remoteVoiceMode == .hold ? "当前：按住说话，松开停止" : "当前：按一下开始，再按一下停止")
+                    Text("语音键不配置双击、长按或普通快捷动作，保持开口响应及时。").font(.caption)
+                }
+                Spacer()
+                Button("设置说话方式") { if setup { step = 4 } else { page = 0 } }
+            }.padding(12).background(Color.accentColor.opacity(0.06)).cornerRadius(10)
+            if let gesture = selectedGesture,
+               let button = RemoteProfiles.chromecastButtons.first(where: { $0.id == selectedButton && !$0.voiceControlled }) {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("编辑：\(button.title) · \(gesture.title)").font(.headline)
+                        Spacer()
+                        Button("关闭编辑") { selectedGesture = nil }
+                    }
+                    ChromecastGestureEditor(button: button, gesture: gesture)
+                        .id(button.id + gesture.rawValue)
+                    Toggle("此按键按住连发", isOn: Binding(get: {
+                        mappingStore.holdRepeats(for: button, remote: .chromecast)
+                    }, set: {
+                        mappingStore.setHoldRepeats($0, for: button, remote: .chromecast)
+                    }))
+                    Text("双击或长按动作存在时，按住连发会暂停。只在配置双击时等待第二次点击；未配置额外手势时立即响应。").font(.caption)
+                }.padding(16).background(Color.accentColor.opacity(0.08)).cornerRadius(12)
+                    .id("chromecast-inline-editor")
+            }
+            Text("音量 / 电源 / 信源若设成红外控制，Mac 可能收不到报告。请在 Chromecast 的遥控器设置中检查控制方式。").font(.caption)
+            Button("恢复 Chromecast 默认按键") { mappingStore.reset(.chromecast) }
+            Text("修改后自动保存；已有配置会被覆盖，可先在设置页导出备份。").font(.caption)
+        }.disabled(model.voiceActive)
     }
+
+    private func mappingColumn(_ identifiers: [String]) -> some View {
+        VStack(spacing: 8) {
+            ForEach(identifiers, id: \.self) { identifier in
+                if let button = RemoteProfiles.chromecastButtons.first(where: { $0.id == identifier }) {
+                    ChromecastMappingCard(button: button, selected: selectedButton == identifier,
+                        observed: model.lastButtonID == identifier, selectedGesture: selectedButton == identifier ? selectedGesture : nil) { gesture in
+                        selectedButton = identifier
+                        selectedGesture = gesture
+                        editorRevision += 1
+                    }
+                }
+            }
+        }.frame(maxWidth: .infinity)
+    }
+
     private var settings: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("设置与诊断").font(.headline)
@@ -274,6 +360,12 @@ struct ChromecastConsoleView: View {
                 do { try LaunchAtLogin.setEnabled(enabled) } catch { message = error.localizedDescription }
                 routeRevision += 1
             })).id(routeRevision)
+            Toggle("在程序坞中显示 vRemoter", isOn: Binding(get: { DockVisibilityPreference.isVisible() }, set: { visible in
+                if DockVisibilityController.apply(visible) {
+                    DockVisibilityPreference.setVisible(visible); routeRevision += 1
+                } else { message = "无法更改程序坞显示，请稍后重试。" }
+            })).id(routeRevision)
+            Text("隐藏程序坞图标后，菜单栏仍可打开主窗口和设置。").font(.caption)
             permissions
             Text("版本：\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development") · 配置格式 v1")
             HStack {
@@ -292,6 +384,12 @@ struct ChromecastConsoleView: View {
             Text("导入仅接受 Chromecast v1 配置，不会导入权限、日志、录音、设备配对或登录项。系统权限和驱动需要在本机单独检查。").font(.caption)
         }
     }
+    private func checkPermissions() {
+        model.refreshPermissions()
+        let missing = [("蓝牙", model.bluetoothGranted), ("辅助功能", model.accessibilityGranted), ("输入监控", model.inputMonitoringGranted)]
+            .filter { !$0.1 }.map { $0.0 }
+        permissionCheckResult = missing.isEmpty ? "检查完成：所需权限均已授权。" : "检查完成：仍需开启" + missing.joined(separator: "、") + "。若系统提示重启应用，请退出并重新打开。"
+    }
     private var currentRouteFingerprint: String {
         "\(audio.selectedOutputUID ?? "")|\(audio.isOutputDeviceAvailable)|\(audio.remoteGain)"
     }
@@ -306,11 +404,30 @@ struct ChromecastConsoleView: View {
     }
     private func invalidateTest() { testArmed = false; confirmedSpeech = false; testText = "" }
     private func reloadConfiguration() {
+        _ = DockVisibilityController.apply(DockVisibilityPreference.isVisible())
         configuration = AppStorage.voiceConfiguration
         model.setRemoteMappingEnabled(RemoteMappingStore.shared.isEnabled(.chromecast), remote: .chromecast)
         model.onVoiceConfigurationChanged?()
         audio.refreshOutputRoutes(); routeRevision += 1; invalidateTest()
     }
+    private func chooseVoiceApplication() {
+        let panel = NSOpenPanel()
+        panel.title = "选择你使用的语音应用"
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedFileTypes = ["app"]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let identifier = Bundle(url: url)?.bundleIdentifier
+        guard VoiceApplicationLaunchEnvironment.workspace.isValidApplication(url, identifier) else {
+            message = "所选文件不是可运行的应用，请选择已安装的 .app。"
+            return
+        }
+        configuration.customApplicationPath = url.path
+        configuration.customBundleIdentifier = identifier ?? ""
+        message = "已选择 \(url.deletingPathExtension().lastPathComponent)。请打开应用确认录音快捷键和虚拟麦克风。"
+    }
+
     private func exportSettings() {
         let panel = NSSavePanel(); panel.nameFieldStringValue = "Chromecast-vRemoter-v1.plist"
         guard panel.runModal() == .OK, let url = panel.url else { return }
@@ -395,5 +512,77 @@ private struct ChromecastGestureEditor: View {
         panel.allowedFileTypes = ["app"]; panel.directoryURL = URL(fileURLWithPath: "/Applications")
         guard panel.runModal() == .OK, let url = panel.url, let app = RemoteApplicationShortcut(url: url) else { return }
         store.setApplication(app, for: button, remote: .chromecast, gesture: gesture)
+    }
+}
+
+/// SF Symbols remain sharp at every display scale. Help is also available by
+/// keyboard/click so essential guidance never depends on a pointer hovering.
+private struct ChromecastHelpLabel: View {
+    let title: String
+    let explanation: String
+    @State private var showingHelp = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(title).fontWeight(.semibold)
+            Button { showingHelp.toggle() } label: {
+                Image(systemName: "info.circle").font(.system(size: 14))
+            }
+            .buttonStyle(.plain)
+            .foregroundColor(.accentColor)
+            .help(explanation)
+            .accessibilityLabel(title + "，查看说明")
+            .accessibilityHint("打开说明弹出窗口")
+            .popover(isPresented: $showingHelp, arrowEdge: .bottom) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(title).font(.headline)
+                    Text(explanation).fixedSize(horizontal: false, vertical: true)
+                    Button("知道了") { showingHelp = false }
+                }.padding(18).frame(width: 340)
+            }
+        }
+    }
+}
+
+private struct ChromecastMappingCard: View {
+    let button: RemoteButtonDefinition
+    let selected: Bool
+    let observed: Bool
+    let selectedGesture: RemoteButtonGesture?
+    let onEdit: (RemoteButtonGesture) -> Void
+    @ObservedObject private var store = RemoteMappingStore.shared
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 5) {
+                Image(systemName: button.symbol).frame(width: 15)
+                Text(button.title).fontWeight(.semibold)
+                Spacer(minLength: 0)
+                if observed { Text("收到").foregroundColor(.green).font(.caption2) }
+                else if selected { Image(systemName: "scope").foregroundColor(.accentColor) }
+            }.font(.caption)
+            ForEach(RemoteButtonGesture.allCases, id: \.self) { gesture in
+                Button { onEdit(gesture) } label: {
+                    HStack(spacing: 5) {
+                        Text(gesture.title).foregroundColor(.secondary).frame(width: 30, alignment: .leading)
+                        Text(store.targetTitle(for: button, remote: .chromecast, gesture: gesture))
+                            .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+                        Image(systemName: "pencil").font(.system(size: 9)).foregroundColor(.secondary)
+                    }
+                    .font(.system(size: 11))
+                    .padding(.horizontal, 4).padding(.vertical, 2)
+                    .background(selectedGesture == gesture ? Color.accentColor.opacity(0.13) : Color.clear)
+                    .cornerRadius(4)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(button.title + " · " + gesture.title + "：" + store.targetTitle(for: button, remote: .chromecast, gesture: gesture))
+                .accessibilityLabel(button.title + "，" + gesture.title + "，当前动作：" + store.targetTitle(for: button, remote: .chromecast, gesture: gesture) + "，编辑")
+            }
+        }
+        .padding(8)
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(9)
+        .overlay(RoundedRectangle(cornerRadius: 9).stroke(observed ? Color.green : selected ? Color.accentColor : Color.secondary.opacity(0.25), lineWidth: observed || selected ? 2 : 1))
     }
 }
