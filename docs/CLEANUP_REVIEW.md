@@ -39,7 +39,7 @@ identity decisions remain in [ownership and licenses](PROJECT_OWNERSHIP_AND_LICE
 | `BLEBridge.swift`, `ATVV/*` | Active Chromecast BLE/ATVV audio, physical voice edges, close generation, keep-alive and session lifecycle |
 | `ChromecastRemoteHIDBridge.swift`, `RemoteMappingSupport.swift` | Chromecast VID/PID, ordinary HID suppression/remapping, custom mappings and gesture lifecycle |
 | `ChromecastVoiceSessionController.swift` | Real PCM/session state, target shortcut, output lease, balanced release and stop observation |
-| `DebugWindowController.swift` | Active window/model, permission guide and shortcut-capture controls with shared styles; existing logo use |
+| `DebugWindowController.swift` | Active window/model, permission guide and shortcut-capture controls with shared styles; neutral placeholder icon and native localized help |
 
 Renaming or extracting code does not make it newly original. The root MIT license,
 ATVV author headers and third-party/source notices remain, including provenance
@@ -86,22 +86,36 @@ current requirements:
 | `REMOTE_DISPLAY_NAME.md` | Native display-name/identity contract and release acceptance |
 | `REUSE_AND_REPLACEMENT_LEDGER.md` | [Ownership/source inventory](PROJECT_OWNERSHIP_AND_LICENSES.md#reference-and-replacement-ledger) |
 
-The approved `docs/prototypes/` HTML, test runner and README remain as the current
-reference. All `Design/vRemoter-Logo-v1/` logo/icon assets and plugin sources remain;
-its README no longer directs developers to the deleted frozen UI. The app name,
-icon, bundle ID, signing requirement, login item, driver identities and version
-were not replaced as part of cleanup. Historical `CHANGELOG.md` is retained.
+The historical `docs/prototypes/vremoter-onboarding-settings.html` remains
+byte-identical. `remote-voice-utility-onboarding-settings.html` is a separate
+current reference with neutral visible branding; the existing test-runner filename
+is retained and defaults to that current copy. Historical `CHANGELOG.md` is untouched.
+
+The 21 files in `Design/vRemoter-Logo-v1/` and eight inherited permission-guide
+screenshots are removed. `Resources/AppIcon/placeholder-app-icon.png` is generated
+by `Tools/generate-placeholder-icon.py`: a generic geometric remote without
+letters or copied brand artwork. Permission help uses existing native localized
+schematics in all three languages. Display names are descriptive placeholders:
+Remote Voice Utility / 遥控器语音工具 / 遙控器語音工具.
+
+The package/executable/app-folder, bundle/signing/login-item, preferences/storage/
+archive, driver identities and version remain unchanged. They require a coordinated
+compatibility migration, not a global text replacement. The root MIT license,
+source headers, third-party notices and provenance links remain unchanged in substance.
 
 ## Packaging and retained review items
 
-`package-app.sh` copies only active remote artwork, permissions help and selected
-branding, plus `LICENSE`, `THIRD_PARTY_NOTICES.md` and the ownership inventory into
-`Contents/Resources/Licenses/`. It does not copy all cached SwiftPM bundles, and it
+`package-app.sh` copies the active remote artwork, generic placeholder icon and
+three-language app resources. Permission illustrations are drawn in native code;
+no help screenshots or help README are copied. `LICENSE`, `THIRD_PARTY_NOTICES.md`
+and the ownership inventory are copied into `Contents/Resources/Licenses/`.
+It does not copy all cached SwiftPM bundles, and it
 does not package a driver. The DMG is app-only; the existing PKG path also builds
 and packages a BlackHole-derived driver.
 
-Retained review items: branding rights, remote-photo provenance/physical accuracy,
-eight permission screenshots, current identity/migration policy, driver input and
+Retained review items: final name and contributor attribution, remote-photo
+provenance/physical accuracy, historical prototype asset provenance, current
+identity/migration policy, driver input and
 corresponding source, GPL distribution route, real signing/notarization and
 installation acceptance. The manual HID probe remains useful for Chromecast
 reports. None of these are resolved by removing the old X6 design or its runtime.
@@ -110,7 +124,9 @@ reports. None of these are resolved by removing the old X6 design or its runtime
 
 Use [README test commands](../README.md#test), the exact candidate commit's macOS
 CI result, and the [release acceptance checklist](CHROMECAST_ACCEPTANCE.md).
-Runtime-cleanup checks should assert absent legacy implementations while requiring
+`Tools/check-branding.py` checks the neutral visible identity and removed artwork
+without erasing required attribution or stable identifiers. Runtime-cleanup checks
+should assert absent legacy implementations while requiring
 the device-neutral replacements. Regression tests cover keyboard edges, current
 profiles, old-archive filtering and preservation of unrelated stored data.
 

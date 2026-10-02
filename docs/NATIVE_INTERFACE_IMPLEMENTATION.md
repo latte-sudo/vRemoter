@@ -2,10 +2,12 @@
 
 ## Design source and scope
 
-`docs/prototypes/vremoter-onboarding-settings.html` is the current v8 visual
-and interaction reference, extending the user-approved v7 layout with Simplified
-Chinese, Traditional Chinese, English and clearer copy. The archived HTML is
-byte-identical to the delivered v8 file. It remains a developer reference,
+`docs/prototypes/remote-voice-utility-onboarding-settings.html` is the current
+neutral visual and interaction reference. It derives from the v8 reference,
+extending the user-approved v7 layout with Simplified Chinese, Traditional Chinese,
+English and clearer copy, and replaces visible product branding with descriptive
+placeholders. `vremoter-onboarding-settings.html` remains a byte-identical historical
+archive of the delivered v8 file. Both remain developer references,
 including its Design Tokens tab; the customer app has no token browser and runs
 no HTML simulation.
 The SwiftUI implementation targets macOS 12. Native compilation and AppKit

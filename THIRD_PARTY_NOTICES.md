@@ -18,7 +18,9 @@ implementation remains under the root MIT notice:
 
 Removing the obsolete X6 design, changing file names or extracting shared types
 neither removes this provenance nor changes the applicable license. Existing
-branding assets are retained; their rights review remains separate.
+source copyright notices remain. Inherited logo assets and permission screenshots
+have been removed from the current tree and packaging; a generic placeholder icon
+and native localized help illustrations replace them.
 
 ## ATVV and ADPCM implementation
 
@@ -104,6 +106,6 @@ Copyright (c) 2020 Daniel Jilg. It should not be reported as a retained runtime
 dependency once removed.
 
 See `docs/PROJECT_OWNERSHIP_AND_LICENSES.md` for the source and asset inventory,
-including the still-unverified rights for retained branding/screenshots and the
-user-provided, AI-enhanced remote image. That audit is bundled as
+including the generic placeholder icon, preserved historical prototype, contribution
+boundaries and still-unverified rights for the user-provided, AI-enhanced remote image. That audit is bundled as
 `PROJECT_OWNERSHIP_AND_LICENSES.md` next to this notice in packaged app builds.

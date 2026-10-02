@@ -3,8 +3,8 @@
 ## User flow
 
 Build with `package-app.sh`, optionally install with `install-app.sh` (replaces `~/Applications/vRemote.app`), then launch the
-installed `~/Applications/vRemote.app` in Finder. The app's displayed name is
-vRemoter. Building or copying an app alone does not request privacy access.
+installed `~/Applications/vRemote.app` in Finder. The app uses descriptive localized display names:
+Remote Voice Utility / 遥控器语音工具 / 遙控器語音工具. Building or copying an app alone does not request privacy access.
 Use the same installed app when testing; a SwiftPM executable launched from
 VS Code or a terminal is not proof that the packaged app has permission.
 
@@ -50,12 +50,20 @@ or system setting changes are performed by this code.
 
 ## Identity and packaging
 
-`Packaging/Info.plist` retains `local.simaqingfeng.vRemote`, the usage strings,
-and the vRemoter display name. `package-app.sh` retains the ad-hoc signature and
+`Packaging/Info.plist` retains the technical identifier `local.simaqingfeng.vRemote`
+and uses the descriptive display name; `Packaging/*.lproj/InfoPlist.strings`
+provides localized display names and permission usage strings. `package-app.sh` retains the ad-hoc signature and
 explicit designated requirement. Keeping the bundle identity, signature policy,
 and installation location consistent reduces identity churn; it does not
 guarantee authorization survives every rebuild, signing change, or OS update.
-This change does not add Developer ID signing or notarization.
+This change does not add Developer ID signing or notarization. The inherited
+identifier is retained for compatibility, not claimed as a user-owned namespace.
+A final identity migration must coordinate bundle/signing/login-item identities,
+installation paths, preferences and macOS permission reauthorization.
+
+Permission help uses localized native schematics in every language; the old
+screenshots are removed. Illustrations are guidance, not proof that a particular
+system setting exists, that authorization is granted or that audio is working.
 
 ## Verification
 

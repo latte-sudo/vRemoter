@@ -1,6 +1,8 @@
-# vRemote Driver HAL builder
+# Experimental audio driver HAL builder
 
-This is the experimental binary-patching driver builder retained by vRemoter.
+This is the experimental binary-patching driver builder retained by this fork.
+Its existing `vRemoteDriver` / `vRemoteDr` technical identities are unchanged;
+a visible app-name change is not a driver migration or new driver ownership claim.
 It is not a verified reproducible source build or a cleared distribution pipeline.
 Doubao filters CoreAudio devices whose transport type is `virtual`, so the
 generated device uses a USB transport identity while remaining a user-space

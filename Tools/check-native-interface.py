@@ -5,7 +5,7 @@ import re
 root = Path(__file__).resolve().parent.parent
 view = (root / 'Sources/vRemote/ChromecastConsoleView.swift').read_text()
 tokens = (root / 'Sources/vRemote/ConsoleDesignTokens.swift').read_text()
-prototype = (root / 'docs/prototypes/vremoter-onboarding-settings.html').read_text()
+prototype = (root / 'docs/prototypes/remote-voice-utility-onboarding-settings.html').read_text()
 progress = (root / 'Sources/vRemote/OnboardingProgress.swift').read_text()
 checks = 0
 def check(condition, message):

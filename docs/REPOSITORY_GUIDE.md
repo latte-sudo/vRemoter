@@ -1,8 +1,8 @@
-# vRemoter 项目目录与文件详解
+# Remote Voice Utility 项目目录与文件详解
 
 这份指南面向要阅读、修改、测试或接手本项目的开发者，按实际文件内容解释“这个目录负责什么、每个文件为什么存在、代码怎样连起来、修改后该验证什么”。当前项目是 macOS 12+ 的 Chromecast Voice Remote 音频与快捷键工具：它传输遥控器语音到选定虚拟输入链路，并触发外部语音工具；识别由外部工具完成。
 
-当前设计参考是基于已批准 v7 扩展三语与简化文案的离线 HTML v8，生产界面是 AppKit 承载的 SwiftUI。运行时只启用遥控器音频，包括旧版本升级场景；代码中仍有通用 Mac capture 实现，不能据此误判当前产品支持混音。当前没有在线服务、外部 Swift package、Xcode 工程文件或 SwiftPM test target。
+当前可见名称为 Remote Voice Utility / 遥控器语音工具 / 遙控器語音工具，均是描述性占位名，不是已确定的最终品牌或新增贡献者署名。当前设计参考是基于已批准 v7 布局、扩展三语与简化文案的离线 HTML v8 中性副本；原始 v8 保持逐字节不变作为历史归档。生产界面是 AppKit 承载的 SwiftUI。运行时只启用遥控器音频，包括旧版本升级场景；代码中仍有通用 Mac capture 实现，不能据此误判当前产品支持混音。当前没有在线服务、外部 Swift package、Xcode 工程文件或 SwiftPM test target。
 
 本指南不表示已经完成 macOS 原生编译、视觉、权限、实体遥控器、语音识别、安装或正式发行验收。驱动构建尤其仍有来源、对应源码、GPL 分发与签名/公证阻塞，见[发布与权利审查](PROJECT_OWNERSHIP_AND_LICENSES.md)及[当前验收清单](CHROMECAST_ACCEPTANCE.md)。
 
@@ -16,7 +16,7 @@
 
 ## 1 清单口径与完整目录
 
-快照日期：2026-10-02；代码与资源以 `94d4e29` 的本地化/清理后内容为基线，并包含随后增加的本文。文件范围为 Git 当前清理后保留的已跟踪文件，结合本轮新增且准备纳入版本控制的文件，并核实每个路径实际存在。排除 Git 管理目录、构建缓存、被忽略产物和用户运行时数据；清理已删除文件不算当前文件。新增本指南后总数为 **150 个文件**，其中 **45 个生产 Swift 文件**，**22 个 Swift 自测文件与 1 份自测说明**。
+快照日期：2026-10-02；以 `2c88332` 为提交基线，清单包含其后的本轮品牌中性化工作区改动。文件范围为 Git 保留的已跟踪文件与本轮新增、准备纳入版本控制的文件；排除 Git 管理目录、构建缓存、被忽略产物和用户运行时数据，不计已删除路径。本轮从此前 150 个文件移除 21 个上游品牌设计文件和 8 张帮助截图，新增 5 个文件，合计 **126 个文件**，其中 **45 个生产 Swift 文件**、**22 个 Swift 自测文件与 1 份自测说明**。这个快照描述文件状态，不代表相关检查或实机验收已通过。
 
 | 位置 | 文件数 | 主要职责 |
 | --- | ---: | --- |
@@ -24,12 +24,11 @@
 | .github | 1 | macOS 持续集成 |
 | Sources | 48 | 45 个原生 Swift 文件与 3 个应用语言表 |
 | SelfTests | 23 | 分层回归与运行边界说明 |
-| Tools | 11 | 源码、打包、模型检查和 HID 诊断 |
+| Tools | 13 | 源码、品牌/打包、模型检查、占位图生成和 HID 诊断 |
 | Packaging | 5 | App 身份、三语用途说明、PKG 安装钩子 |
 | Driver | 4 | 实验驱动构建/安装/卸载与风险说明 |
-| Resources | 10 | 活动遥控器图与八张帮助图、说明 |
-| Design | 21 | 保留品牌插件与历史图标/画板导出 |
-| docs | 12 | 本指南、产品工程说明、验收与批准原型 |
+| Resources | 4 | 通用占位图及说明、活动遥控器图、原生权限示意说明 |
+| docs | 13 | 本指南、产品工程说明、验收、当前中性原型与历史 v8 |
 
 下面是完整保留文件树，不含被忽略生成物。后续表格每个路径均链接到实际文件；文件树提供位置，表格提供职责和修改边界。
 
@@ -40,29 +39,6 @@ vremoter-chromecast-v1/
 │       └── chromecast-validation.yml
 ├── .gitignore
 ├── CHANGELOG.md
-├── Design/
-│   └── vRemoter-Logo-v1/
-│       ├── README.md
-│       ├── code.js
-│       ├── manifest.json
-│       ├── vRemoter-app-icon-v5.png
-│       ├── vRemoter-app-icon-v5.svg
-│       ├── vRemoter-app-icon-v6.png
-│       ├── vRemoter-app-icon-v6.svg
-│       ├── vRemoter-app-icon-v7.png
-│       ├── vRemoter-app-icon-v8.png
-│       ├── vRemoter-app-icon-v9.png
-│       ├── vRemoter-logo-v2-preview.png
-│       ├── vRemoter-logo-v2-preview.svg
-│       ├── vRemoter-logo-v2-preview.svg.png
-│       ├── vRemoter-logo-v3-preview.png
-│       ├── vRemoter-logo-v4-preview.png
-│       ├── vRemoter-logo-v5-preview.png
-│       ├── vRemoter-logo-v6-preview.png
-│       ├── vRemoter-logo-v7-preview.png
-│       ├── vRemoter-logo-v8-preview.png
-│       ├── vRemoter-logo-v9-preview.png
-│       └── 打开Logo插件.command
 ├── Driver/
 │   ├── README.md
 │   ├── build-driver.sh
@@ -83,16 +59,11 @@ vremoter-chromecast-v1/
 │       └── InfoPlist.strings
 ├── README.md
 ├── Resources/
-│   ├── PermissionGuides/
+│   ├── AppIcon/
 │   │   ├── README.md
-│   │   ├── doubaoinput0.png
-│   │   ├── doubaoinput1.png
-│   │   ├── doubaoinput2.png
-│   │   ├── permission-accessibility.png
-│   │   ├── permission-app-management.png
-│   │   ├── permission-bluetooth.png
-│   │   ├── permission-input-monitoring.png
-│   │   └── permission-microphone.png
+│   │   └── placeholder-app-icon.png
+│   ├── PermissionGuides/
+│   │   └── README.md
 │   └── RemoteImages/
 │       └── chromecast-front-and-volume-enhanced.png
 ├── SelfTests/
@@ -180,10 +151,12 @@ vremoter-chromecast-v1/
 ├── TODO.md
 ├── Tools/
 │   ├── check-app-bundle.py
+│   ├── check-branding.py
 │   ├── check-localization.py
 │   ├── check-mapping-layout.py
 │   ├── check-native-interface.py
 │   ├── check-runtime-cleanup.py
+│   ├── generate-placeholder-icon.py
 │   ├── hid-report-probe.swift
 │   ├── run-gesture-tests.sh
 │   ├── test-chromecast-models.sh
@@ -205,6 +178,7 @@ vremoter-chromecast-v1/
 │   ├── chromecast-audio-resource-lifecycle.md
 │   └── prototypes/
 │       ├── README.md
+│       ├── remote-voice-utility-onboarding-settings.html
 │       ├── test-vremoter-onboarding-settings.cjs
 │       └── vremoter-onboarding-settings.html
 ├── install-app.sh
@@ -313,28 +287,35 @@ MenuBarVoiceReception 只由真实新 PCM 刷新，要求仍处于有效 streami
 
 AppLanguage 只保存应用自己的语言偏好，支持跟随系统、简体中文、繁体中文、英文；系统中文脚本 Hans/Hant 优先于地区，TW/HK/MO 在没有显式脚本时选繁体，其他不支持语言回退英文。L10n 用稳定语义 key 加位置占位符加载字符串，用户昵称、设备名、文件名与诊断值保持原样，不重新解释用户文本里的占位符。
 
-当前三份 Localizable.strings 各含 478 个语义 key。SwiftPM 通过 process(Resources) 生成资源 bundle，开发 executable 读取 Bundle.module；手工 App 打包把三份语言表直接放入 Contents/Resources 的 .lproj 目录，避免携带过期第三方 bundle。Packaging 的 InfoPlist.strings 是系统用途说明，Sources 的 Localizable.strings 才是应用正文。
+当前三份 Localizable.strings 各含 479 个语义 key。SwiftPM 通过 process(Resources) 生成资源 bundle，开发 executable 读取 Bundle.module；手工 App 打包把三份语言表直接放入 Contents/Resources 的 .lproj 目录，避免携带过期第三方 bundle。Packaging 的 InfoPlist.strings 是系统用途说明，Sources 的 Localizable.strings 才是应用正文。
 
 语言修改广播 appLanguageDidChange，LanguageStore 让 SwiftUI 原地刷新，AppController/DebugWindowController 刷新菜单和标题；正在进行的会话保留状态、错误与时间戳。VoiceSessionPresentation 持有本地化 key，因此不能仅翻译已缓存的旧文本；归档恢复若改变语言也必须发通知。换语言不代表已重新授权、重新识别或重启连接。
+
+### 2.10 描述性名称与兼容身份
+
+- 可见窗口、菜单、三语用途说明及 App 本地化元数据使用描述性占位名；原生和当前原型保留最终名称待定提示。通用图标替代旧独立品牌资产，不替换继承实现的作者头或许可文字
+- vRemote Swift target、可执行文件和 .app 路径，以及既有 bundle/signing/login-item/PKG/driver ID、偏好 key、数据目录与原型存储格式继续保留。它们是兼容接口，不是当前可见品牌或新的权属声明
+- 此次 DMG 只改用户看到的卷名；分发文件名等技术字段的协调迁移仍在 TODO。改显示名不会自动迁移设置、授权、路由、登录项或用户数据
+- 选择最终名称/署名、用户控制的命名空间及升级或并存策略后，必须一起设计迁移、回滚与 macOS 验收；不要批量替换历史和通知里的旧名称
 
 ## 3 根目录与持续集成
 
 | 文件 | 实际职责与关键实现 | 何时修改及验证边界 |
 | --- | --- | --- |
-| [.github/workflows/chromecast-validation.yml](../.github/workflows/chromecast-validation.yml) | macos-14 上执行 swift build、协议/模型/20 次语音回归、几何/原生/清理契约、Node 20 原型回归、三语源码/运行时测试、SwiftPM 与实际 App 的 --localization-self-test、隔离打包、真实 App 打包及资源通知校验。push 仅配置 feat/chromecast-first-run，pull_request 也触发；仓库权限为 contents: read。 | 新增测试须接入此 workflow；实际成功以当前候选 commit 的 run 为准，不代表原生视觉、权限弹窗或硬件通过。 |
+| [.github/workflows/chromecast-validation.yml](../.github/workflows/chromecast-validation.yml) | macos-14 上执行 swift build、协议/模型/20 次语音回归、几何/原生/清理契约、Node 20 当前与历史原型回归、品牌/来源/兼容契约与占位图逐字节重建检查、三语源码/运行时测试、SwiftPM 与实际 App 的 --localization-self-test、隔离打包、真实 App 打包及资源通知校验。push 仅配置 feat/chromecast-first-run，pull_request 也触发；仓库权限为 contents: read。 | 新增测试须接入此 workflow；实际成功以当前候选 commit 的 run 为准，不代表原生视觉、权限弹窗或硬件通过。 |
 | [.gitignore](../.gitignore) | 排除 SwiftPM、dist、驱动构建、App/driver/dSYM、日志、录音和配对标识等生成或私人数据。 | 新增工具产物时更新；被忽略不等于本机一定存在，也不表示可以删除用户数据。 |
 | [CHANGELOG.md](../CHANGELOG.md) | 保留上游 1.0.0 至 1.1.1 历史，包括当时的双遥控器、旧安装建议与功能。它是历史记录，不是本分支当前支持清单。 | 发布新版本时追加真实发布记录；不要按旧条目恢复已移除功能或宣称当前 PKG 可分发。 |
 | [LICENSE](../LICENSE) | 根 MIT 许可及 Sima Qingfeng 版权行；覆盖继承实现的基本来源通知。 | 保留全文；新增贡献和发行许可决策需要与第三方通知配套，不把驱动视为 MIT。 |
 | [PRODUCT.md](../PRODUCT.md) | 当前产品边界：Chromecast-only、七步引导、四页设置、独立 hold/toggle 语义、远程音频和安全停止；列明暂不支持的宏、多设备绑定等。 | 先在此确认需求是否属于当前产品，再改运行时代码与验收。 |
 | [Package.swift](../Package.swift) | Swift tools 5.9、macOS 12 最低版本、defaultLocalization=en，一个 vRemote executable target，源目录 Sources/vRemote，process(Resources) 将三语字符串表作为 SwiftPM 资源；Debug 定义 DEBUG。没有外部 Swift package 或 testTarget。 | 调整编译/资源布局时修改；新增 Swift 文件自动进入 target，测试由脚本显式选文件编译。Bundle.module 为 SwiftPM 生成的资源入口，不是第三方依赖。 |
 | [README.md](../README.md) | 项目入口：支持范围、Mac 环境、构建安装、首次使用、排障、测试命令和发布阻塞项。解释 HID 与 BLE 分开、实际 PCM 与识别结果分开。 | 修改开发流程、运行条件、用户可见能力时同步；不要把历史 CI 或原型通过写成实机验收。 |
-| [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) | 继承实现、提取的中性公共代码、mi-ao / ATVVoice / ATVV 来源与 MIT 文字，以及 BlackHole GPL 和历史依赖移除记录。 | 新增或移除依赖、复制代码、变更驱动输入时核对；package-app.sh 将本文件实际随包复制。 |
-| [TODO.md](../TODO.md) | 暂缓的实体遥控器与电脑身份绑定设计，包含 HID/BLE 关联、稳定身份、重分配和既有型号级映射迁移。 | 开始多设备设计时从这里接续；现有 VID/PID、昵称和保存的 BLE UUID 不等于实现身份绑定。 |
+| [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) | 继承实现、提取的中性公共代码、mi-ao / ATVVoice / ATVV 来源与 MIT 文字，以及 BlackHole GPL、历史依赖与品牌资源移除记录。 | 新增或移除依赖、复制代码、变更驱动输入时核对；package-app.sh 将本文件实际随包复制。 |
+| [TODO.md](../TODO.md) | 暂缓的实体遥控器与电脑身份绑定设计，以及最终产品名、贡献署名、图标、命名空间和协调迁移清单；包括 HID/BLE 关联、稳定身份、既有设置/路由/登录项/TCC 兼容。 | 开始多设备或最终命名设计时从这里接续；现有 VID/PID、昵称和保存的 BLE UUID 不等于实现身份绑定，占位名也不代表已选择新作者或完成技术身份迁移。 |
 | [VERSION](../VERSION) | 当前文本版本号 1.1.1。 | 发布时与 Packaging/Info.plist 核对；现有 DMG/PKG 脚本实际从 plist 读取版本，改此文件不会单独改变包版本。 |
-| [build-dmg.sh](../build-dmg.sh) | 调用 package-app.sh，准备 App 与 Applications 链接，用 hdiutil 创建 UDZO 格式 app-only DMG，并移除 staging。 | 修改 DMG 布局、命名或卷名时使用；覆盖同版本生成 DMG，不是签名/公证发布流水线。 |
+| [build-dmg.sh](../build-dmg.sh) | 调用 package-app.sh，准备 App 与 Applications 链接，用 hdiutil 创建 UDZO 格式 app-only DMG，卷名为 Remote Voice Utility <version>，并移除 staging；既有分发文件名暂留以待协调迁移。 | 修改 DMG 布局、命名或卷名时使用；覆盖同版本生成 DMG，不是签名/公证发布流水线。 |
 | [build-pkg.sh](../build-pkg.sh) | 先构建 App 和修改版驱动，将两者放入 Applications 与系统 HAL payload，调用 pkgbuild；可由 INSTALLER_SIGN_IDENTITY 触发 productsign。 | 改安装包时同时检查 postinstall、Driver 和许可；不设置签名身份会生成未签名 PKG，含驱动的发布路线仍阻塞。 |
 | [install-app.sh](../install-app.sh) | 将已构建 App 复制到当前用户 Applications 中，最后校验签名。 | 仅在明确要替换本地已安装 App 时运行；会先删除同名目标目录，不构建、不安装驱动、不授权 TCC。 |
-| [package-app.sh](../package-app.sh) | 构建 release，重建 dist/build/vRemote.app；复制三份已审阅 Localizable.strings 及对应 InfoPlist.strings、v9 图标、权限图、唯一活动遥控器图与三份许可；生成 ICNS、清扩展属性并 ad-hoc 签名。 | 本地化直接复制到 Contents/Resources/<locale>.lproj，不通配打包 SwiftPM 缓存 bundle。改变资源/身份时跑两类打包检查；会重建生成 App，不装驱动、不公证。 |
+| [package-app.sh](../package-app.sh) | 构建 release，重建 dist/build/vRemote.app；复制三份 Localizable.strings 及对应 InfoPlist.strings、通用占位图、唯一活动遥控器图与三份许可；将占位 PNG 复制为 AppIcon.png 并生成 AppIcon.icns，清扩展属性并 ad-hoc 签名。权限帮助由原生绘制，不再复制截图目录。 | 本地化直接复制到 Contents/Resources/<locale>.lproj，不通配打包 SwiftPM 缓存 bundle。改变资源/身份时跑两类打包检查；会重建生成 App，不装驱动、不公证。 |
 | [run-chromecast-voice-tests.sh](../run-chromecast-voice-tests.sh) | 在临时目录将生产语音状态机、会话控制器、ATVV、资源租约与测试适配器编译为独立程序；退出时清理临时目录。 | VREMOTE_VOICE_TEST_REPETITIONS 为 1–100，默认 1；缺 swiftc 明确退出 127。此测试不调用真实 CoreAudio/BLE 或发键。 |
 | [run-self-tests.sh](../run-self-tests.sh) | 用 swiftc 编译 ATVV 的三个生产文件与 SelfTests/main.swift，执行 .build/vremote-self-test。 | 协议与 ADPCM 改动的最小回归入口；脚本使用 zsh，纯协议逻辑本身不需要遥控器。 |
 
@@ -355,7 +336,7 @@ Sources/vRemote 是一个 executable target，没有以目录隔离成多个 Swi
 | [Sources/vRemote/DockVisibility.swift](../Sources/vRemote/DockVisibility.swift) | chromecast.showDockIcon 偏好读写；缺值为 false，保留菜单栏应用默认行为。 | 修改缺省和归档恢复时跑 DockVisibilityTests。 |
 | [Sources/vRemote/DockVisibilityController.swift](../Sources/vRemote/DockVisibilityController.swift) | 切换 regular/accessory activation policy，设置应用图标，并异步恢复已聚焦且可见的窗口。 | 处理 Dock 显隐、焦点和图标；不得关掉控制台或丢失菜单栏入口。 |
 | [Sources/vRemote/MenuBarVoiceReception.swift](../Sources/vRemote/MenuBarVoiceReception.swift) | 纯绿点判定：streaming 且 phase 为 opening/recording，并在单调时钟 0.75 秒内收到真实 PCM 才为 true；离开接收态立即清历史。 | 改指示时长/生命周期时补状态回归；连接成功、测试音、主机请求均不能点亮。 |
-| [Sources/vRemote/MenuBarStatusIcon.swift](../Sources/vRemote/MenuBarStatusIcon.swift) | 用现有 LogoAsset 绘制 22×18 菜单栏图标，收到语音时叠加绿色圆点；非 template 图像避免系统把绿点染成文本色。 | 只负责画图，接收语义在 MenuBarVoiceReception；浅深菜单栏/高对比和 VoiceOver 文案要实测。 |
+| [Sources/vRemote/MenuBarStatusIcon.swift](../Sources/vRemote/MenuBarStatusIcon.swift) | 用 LogoAsset 的通用占位图绘制 22×18 菜单栏图标，收到语音时叠加绿色圆点；非 template 图像避免系统把绿点染成文本色。 | 只负责画图，接收语义在 MenuBarVoiceReception；浅深菜单栏/高对比和 VoiceOver 文案要实测。 |
 | [Sources/vRemote/Log.swift](../Sources/vRemote/Log.swift) | 带锁日志文件、开关、clear 和 5 MiB 达阈值截断；全局单字符串 print 重载写到此日志。 | 排障输出在此统一；日志关闭时此重载不输出，所谓 rotate 当前是截断而非保留多个历史文件。 |
 
 ### 4.2 HID BLE 与 ATVV 传输
@@ -401,7 +382,7 @@ Sources/vRemote 是一个 executable target，没有以目录隔离成多个 Swi
 | 文件 | 实际职责与关键实现 | 何时修改及验证边界 |
 | --- | --- | --- |
 | [Sources/vRemote/ChromecastConsoleView.swift](../Sources/vRemote/ChromecastConsoleView.swift) | 七步首次引导与四页设置的 SwiftUI 主视图；真实试用证据、全局语音头、工具/路由/映射/名称/权限/外观/配置备份与确认动作。 | 改用户流程在此及纯进度/证据模型；保持 voiceActive 时配置禁用、停止入口可达，不能把原型模拟逻辑带入真实运行时。 |
-| [Sources/vRemote/DebugWindowController.swift](../Sources/vRemote/DebugWindowController.swift) | 原生窗口与 ConsoleViewModel 适配层，包含 PermissionKind、LogoAsset/GuideAsset、权限说明弹窗、键盘快捷键采集 NSView 桥和共享样式。 | 需要窗口、权限导航、资源回退或原生 key capture 时修改；尽管名称为 Debug，它是当前正式控制台入口。 |
+| [Sources/vRemote/DebugWindowController.swift](../Sources/vRemote/DebugWindowController.swift) | 原生窗口与 ConsoleViewModel 适配层，包含 PermissionKind、LogoAsset、三语原生 PermissionIllustration、权限说明弹窗、键盘快捷键采集 NSView 桥和共享样式。 | 需要窗口、权限导航、资源回退或原生 key capture 时修改；尽管名称为 Debug，它是当前正式控制台入口。 |
 | [Sources/vRemote/ConsoleDesignTokens.swift](../Sources/vRemote/ConsoleDesignTokens.swift) | 共享亮/暗语义色、219 pt 侧栏和页面尺寸，ConsoleCard、ConsoleNotice、主按钮样式、三态外观选择器；支持 Reduce Motion。 | 主题与基础排版优先改 token，不把颜色散落到视图；原生色值契约与批准原型关联。 |
 | [Sources/vRemote/ChromecastMappingLayout.swift](../Sources/vRemote/ChromecastMappingLayout.swift) | 照片锚点和双列卡片的纯几何配置：Placement + Metrics，15 个固定 ID、左右顺序、坐标、照片与卡片尺寸及连接点计算。 | 布局偏移/添加实体键从这里检查；同步真实图片与几何测试，不在 UI 中复制另一份坐标。 |
 | [Sources/vRemote/ChromecastMappingCanvas.swift](../Sources/vRemote/ChromecastMappingCanvas.swift) | SwiftUI 照片画布、热点、连接线、三格手势卡片、保留语音卡片、实际输入高亮；ChromecastMappingPhoto 统一读 app bundle 或源码资源。 | 首次引导和遥控器设置共用；改卡片/图片或窄窗横向滚动时跑几何检查，再做 macOS 渲染验证。 |
@@ -446,13 +427,13 @@ Sources/vRemote 是一个 executable target，没有以目录隔离成多个 Swi
 
 ### 5.3 DebugWindowController.swift
 
-- PermissionKind 汇总系统设置 URL、标题、说明、截图及是否可由当前版本申请；并非所有帮助图都对应当前需要申请的权限
-- LogoAsset 从包/开发路径读取图标并提供绘制回退；GuideAsset 为帮助图提供资源入口
+- PermissionKind 汇总系统设置 URL、标题、分步说明及是否可由当前版本申请；pageCount 来自 guidance，帮助条目不等于当前需要申请的权限
+- LogoAsset 从 App 包的 AppIcon.png 或开发路径 Resources/AppIcon/placeholder-app-icon.png 读取通用占位图；缺图时用几何图形绘制回退，不含旧品牌字母。旧 GuideAsset 与截图读取路径已移除
 - ConsoleViewModel 的 @Published 字段把生产连接/电平/权限/会话传给 SwiftUI；refreshPermissions 是读取，requestPermission 才调用 MacPermissionRequester
 - DebugWindowController 建立 1160×820 窗口，最小 1080×720，以 NSHostingView 承载主视图；show 时重查权限并开启 1.5 秒只读刷新，windowWillClose 停 timer
 - update、voiceStateChanged、receivedAudioPacket、voiceSessionEnded、observedButton 是主程序的数据适配入口，普通按钮高亮 0.25 秒后复位
 - KeyboardShortcutCaptureView → KeyboardEventCaptureView → KeyboardCaptureNSView 桥接真实按键采集，生成 RemoteCustomShortcut；这是采集快捷键定义，不是录音触发逻辑
-- PermissionGuideView/GuideScreenshot 在简体界面使用保留截图及运行时箭头；英文/繁体改用明确标注的本地化示意；ConsoleTheme/ConsoleButtonStyle 是这些共享原生辅助界面的样式，不是已删除的旧 mixer 根视图
+- PermissionGuideView/PermissionIllustration 在三种语言中统一显示明确标注的原生示意，使用本地化标签和导航箭头；它不是实际系统截图，示意中的开关也不设置系统权限。vRemoteDr 2ch 仍是实际技术路由名。ConsoleTheme/ConsoleButtonStyle 提供共享原生辅助界面样式
 
 ### 5.4 AudioPipe.swift
 
@@ -517,9 +498,9 @@ Sources/vRemote 是一个 executable target，没有以目录隔离成多个 Swi
 
 | 文件 | 实际职责与关键实现 | 何时修改及验证边界 |
 | --- | --- | --- |
-| [Tools/check-app-bundle.py](../Tools/check-app-bundle.py) | 检查传入 App 实际结构、plist 身份、Mach-O magic/可执行位、ICNS 容器、图/本地化与三份许可逐字节一致，拒绝旧推广/依赖资源。 | 在真实 package-app 之后跑；仅文件格式头和内容验证，不替代 codesign、运行、驱动和 GPL 合规检查。 |
+| [Tools/check-app-bundle.py](../Tools/check-app-bundle.py) | 检查传入 App 实际结构、plist 身份、Mach-O magic/可执行位、ICNS 容器、占位图/本地化与三份许可逐字节一致，拒绝旧品牌、帮助截图及推广/依赖资源。 | 在真实 package-app 之后跑；仅文件格式头和内容验证，不替代 codesign、运行、驱动和 GPL 合规检查。 |
 | [Tools/check-mapping-layout.py](../Tools/check-mapping-layout.py) | 无 macOS 的源码/数学契约：15 个唯一位置、左右顺序、锚点范围、多宽度卡片/图片间距、横向滚动和内联编辑入口。 | 适合快速发现布局结构退化；通过不代表 Swift 编译或像素不重叠。 |
-| [Tools/check-native-interface.py](../Tools/check-native-interface.py) | 源码契约核对七步、四设置页、颜色与批准原型、真实试用门槛、停止/计时/确认、remote-only 启动顺序、侧栏对齐和实际 PCM 绿点。 | UI/流程变更时同步契约；多数检查为字符串和正则，必须另外编译/渲染。 |
+| [Tools/check-native-interface.py](../Tools/check-native-interface.py) | 源码契约核对七步、四设置页、颜色与当前中性原型、真实试用门槛、停止/计时/确认、remote-only 启动顺序、侧栏对齐和实际 PCM 绿点。 | UI/流程变更时同步契约；多数检查为字符串和正则，必须另外编译/渲染。 |
 | [Tools/check-runtime-cleanup.py](../Tools/check-runtime-cleanup.py) | 检查已移除运行时/推广内容不回流，中性公共组件仍在、无外部包依赖、listen-only 安全、当前权限声明及署名/许可打包等。 | 重构/依赖/清理改动后运行；故意保留历史名字作为“必须不存在”的断言，不是活跃支持。 |
 | [Tools/hid-report-probe.swift](../Tools/hid-report-probe.swift) | 独立开发诊断 Probe：用两个十六进制参数匹配 HID，注册设备 report callback，按时间打印报告 ID、长度和原始 bytes，运行 CFRunLoop。 | macOS 上以 swift Tools/hid-report-probe.swift 18d1 9450 使用；可能需要 Input Monitoring，不测试音频，不上传报告。 |
 | [Tools/run-gesture-tests.sh](../Tools/run-gesture-tests.sh) | 先跑跨平台纯手势，在 Darwin 再编译映射存储及 controller/非投递 CGEvent 测试；非 macOS 明确输出 SKIP。 | 按键动作和生命周期改动的定向入口；需 Swift 5.9+，不发真实按键或启动应用。 |
@@ -528,6 +509,8 @@ Sources/vRemote 是一个 executable target，没有以目录隔离成多个 Swi
 | [Tools/test-voice-launcher.sh](../Tools/test-voice-launcher.sh) | 编译生产配置/launcher 与伪环境单测，产出 .build/chromecast-tests/voice-launcher。 | 打开工具的定位/激活/错误逻辑定向入口；没有真实 LaunchServices 和目标工具验收。 |
 | [Tools/test-localization.sh](../Tools/test-localization.sh) | 把三语 .lproj 复制到 .build/localization-tests，swiftc 编译生产 Localization/VoiceSessionPresentation/AudioRouteConfiguration 与独立测试，运行真实目录资源加载。 | Swift 5.9+；缺编译器退出 127。重点验证可执行文件能读到语言表和切换保持状态；不是纯文本 key 检查。 |
 | [Tools/check-localization.py](../Tools/check-localization.py) | 离线扫描三语 .strings 的格式/重复/空值/key 与位置/printf 占位一致性、权限文本 parity、Swift 源码 literal/语义 key 覆盖，以及原地刷新/资源入口契约。 | Python 3、无需 Mac；允许明确日志/协议/用户数据边界，不证明译文自然度、Swift 编译或原生视觉；新增文案应扩充三表而非绕过扫描。 |
+| [Tools/check-branding.py](../Tools/check-branding.py) | 核对三语显示名/元数据、通用图标、原生帮助示意、旧资源移除和中性 DMG 卷名；锁定兼容 namespace token、历史 v8 与根 LICENSE 的 SHA-256，保留 ATVV/第三方署名与原型存储标识。 | 品牌/资源变更后运行；只验证脚本列明的契约，不能证明所有素材权利、最终品牌、原生显示或 macOS 身份迁移已获确认。 |
+| [Tools/generate-placeholder-icon.py](../Tools/generate-placeholder-icon.py) | 仅用 Python 标准库绘制 1024×1024 RGBA PNG：圆角底板、通用遥控器与圆形按钮，无字体或外部图像输入；默认写入 Resources/AppIcon/placeholder-app-icon.png。 | 修改几何或颜色后重新生成；--check 重新渲染并逐字节比较，不改文件。不将开发占位图视为最终品牌或权属证明。 |
 
 ## 8 打包与实验驱动逐文件说明
 
@@ -537,18 +520,18 @@ Sources/vRemote 是一个 executable target，没有以目录隔离成多个 Swi
 | [Driver/build-driver.sh](../Driver/build-driver.sh) | 复制已安装 BlackHole2ch.driver 到 Driver/build，通过等长 Perl 二进制替换修改 UID/品牌/设备 transport，并修改 plist factory UUID、临时签名与架构检查。 | 不改变原 BlackHole，但覆盖 Driver/build；未固定输入版本/哈希，硬编码替换依赖特定二进制布局，不能当任意改名器。 |
 | [Driver/install-driver.sh](../Driver/install-driver.sh) | 把生成驱动复制到系统 HAL 目录，存在时拒绝覆盖，设置 root:wheel/755/644 并重启 coreaudiod。 | 需要管理员权限并影响系统音频；运行前验证来源、权限和明确安装意图。 |
 | [Driver/uninstall-driver.sh](../Driver/uninstall-driver.sh) | 删除指定 vRemoteDriver.driver 并重启 coreaudiod。 | 只针对该驱动，但仍是系统删除及音频中断；不是文档/测试任务需要执行的命令。 |
-| [Packaging/Info.plist](../Packaging/Info.plist) | App 名 vRemoter、executable vRemote、bundle ID local.simaqingfeng.vRemote、版本 1.1.1/build 111、macOS 12、LSUIElement 及 Bluetooth/Input Monitoring 用途声明；列出三种本地化，当前无 Mac 麦克风用途声明。 | 身份/权限/最低系统变更时同步签名 requirement、登录项、安装脚本与迁移；系统权限文本在对应 InfoPlist.strings，应用文案在 Sources 的 Localizable.strings。 |
-| [Packaging/en.lproj/InfoPlist.strings](../Packaging/en.lproj/InfoPlist.strings) | 英文 Bluetooth 与 Input Monitoring 系统用途描述，打包到 Contents/Resources/en.lproj。 | 系统弹窗文案随实际行为同步；不是整套应用英文翻译资源。 |
+| [Packaging/Info.plist](../Packaging/Info.plist) | App 显示名 Remote Voice Utility、图标 AppIcon.icns、executable vRemote、bundle ID local.simaqingfeng.vRemote、版本 1.1.1/build 111、macOS 12、LSUIElement 及 Bluetooth/Input Monitoring 用途声明；列出三种本地化，当前无 Mac 麦克风用途声明。 | 身份/权限/最低系统变更时同步签名 requirement、登录项、安装脚本与迁移；系统权限文本在对应 InfoPlist.strings，应用文案在 Sources 的 Localizable.strings。 |
+| [Packaging/en.lproj/InfoPlist.strings](../Packaging/en.lproj/InfoPlist.strings) | 英文占位显示名及 Bluetooth 与 Input Monitoring 系统用途描述，打包到 Contents/Resources/en.lproj。 | 系统弹窗文案随实际行为同步；不是整套应用英文翻译资源。 |
 | [Packaging/pkg-scripts/postinstall](../Packaging/pkg-scripts/postinstall) | PKG 安装后修复驱动属主/目录/文件权限，重启 coreaudiod，结束旧 vRemote，并尝试以控制台用户启动 /Applications/vRemote.app。 | 执行具有系统音频中断、进程终止和程序启动副作用；只有安装 PKG 才运行，不属于 app-only 测试。 |
-| [Packaging/zh-Hans.lproj/InfoPlist.strings](../Packaging/zh-Hans.lproj/InfoPlist.strings) | 简体中文 Bluetooth 与 Input Monitoring 系统用途描述，解释遥控器接收与配置快捷键观察。 | 与英文及 Info.plist 一起修改；不要恢复当前不申请的 Mac capture 声明。 |
-| [Packaging/zh-Hant.lproj/InfoPlist.strings](../Packaging/zh-Hant.lproj/InfoPlist.strings) | 繁体中文 Bluetooth 和 Input Monitoring 系统用途描述，随 App 包进入 zh-Hant.lproj。 | 仅系统权限用途文字；跟随真实行为、与简中/英文一致，不申请 Mac 麦克风。 |
+| [Packaging/zh-Hans.lproj/InfoPlist.strings](../Packaging/zh-Hans.lproj/InfoPlist.strings) | 简体中文占位显示名及 Bluetooth 与 Input Monitoring 系统用途描述，解释遥控器接收与配置快捷键观察。 | 与英文及 Info.plist 一起修改；不要恢复当前不申请的 Mac capture 声明。 |
+| [Packaging/zh-Hant.lproj/InfoPlist.strings](../Packaging/zh-Hant.lproj/InfoPlist.strings) | 繁体中文占位显示名及 Bluetooth 和 Input Monitoring 系统用途描述，随 App 包进入 zh-Hant.lproj。 | 仅系统权限用途文字；跟随真实行为、与简中/英文一致，不申请 Mac 麦克风。 |
 
 ### 8.1 产物如何形成
 
 ```text
 Package.swift + Sources → swift build -c release → .build/release/vRemote
                                        ↓
-Packaging + 活动 Resources + v9 图标 + 三份许可
+Packaging + 活动 Resources + 通用占位图 + 三份许可
                                        ↓
 package-app.sh → dist/build/vRemote.app（开发临时签名）
               ├→ install-app.sh → 用户 Applications 中替换 App
@@ -557,7 +540,7 @@ package-app.sh → dist/build/vRemote.app（开发临时签名）
                     → App + HAL driver PKG → postinstall 系统操作
 ```
 
-源码运行可能通过相对路径加载图；可分发 App 必须依赖 Contents/Resources 中实际复制的资源。当前 package-app 不是把整个 Resources 或 Design 无差别打入包：只复制活动遥控器图、帮助目录、v9 logo/ICNS、三语字符串表/权限文本和指定许可。历史预览、HTML 原型、源码与测试不会因此自动成为 App 内容。
+源码运行可能通过相对路径加载图；可分发 App 必须依赖 Contents/Resources 中实际复制的资源。当前 package-app 不会把整个 Resources 无差别打入包：只复制活动遥控器图、占位 PNG/生成的 ICNS、三语字符串表/权限文本和指定许可；PermissionGuides 目录不再随包复制。已删除的 Design 品牌资产没有运行时入口，HTML 原型、源码与测试也不会自动成为 App 内容。
 
 ### 8.2 执行风险分级
 
@@ -569,54 +552,29 @@ package-app.sh → dist/build/vRemote.app（开发临时签名）
 | install-app | 覆盖已有用户 App | 明确决定升级/替换后再运行 |
 | Driver install/uninstall / PKG postinstall | 系统 HAL 写删、改权限、重启音频服务，PKG 还终止/启动 App | 需管理员与明确授权，可能打断当前录音/通话；不属于自动文档验证 |
 | LaunchAtLogin | 写删用户持久 LaunchAgent、调用 launchctl | 用户主动开关后执行；归档导入不隐式更改 |
-| Figma code.js | 替换当前设计文件中的同名 logo 画板 | 设计修改任务中确认目标，避免当成无副作用预览 |
+| generate-placeholder-icon.py | 默认重写指定的占位 PNG；--check 只比较 | 仅在有意更新几何图标时生成，提交前核对源码与 PNG 一致 |
 
-## 9 图片 设计源与其他资源逐文件说明
+## 9 图片与其他资源逐文件说明
 
-原生资源路径、文件格式和尺寸经实际文件检查。帮助截图本身含简体中文；英语/繁体原生界面显示翻译后的示意图，不把截图自动翻译成另一张真实系统截图。部分帮助图虽用 .png 扩展名，内容是 JPEG；AppKit 通常按内容加载，但换用严格 PNG 工具或重编码时必须留意。这里记录工程用途与格式，不把保留资产视为权利许可，也不声称历史每版设计都有当前认可状态。
+当前保留的独立图片只有通用开发占位图与活动遥控器图。权限及语音工具帮助在三种语言中均使用原生、本地化的示意控件，不再读取继承截图。文件格式和尺寸只是工程事实，不构成资产许可或最终品牌批准。
 
-### 9.1 活动资源与帮助图
-
-| 文件 | 实际职责与关键实现 | 何时修改及验证边界 |
-| --- | --- | --- |
-| [Resources/PermissionGuides/README.md](../Resources/PermissionGuides/README.md) | 8 张权限与豆包输入选择帮助图的用途及替换规则；红色指示由原生 UI 运行时绘制。 | 系统 UI 改版时替换同名图并检查 GuideScreenshot 的覆盖位置。 |
-| [Resources/PermissionGuides/doubaoinput0.png](../Resources/PermissionGuides/doubaoinput0.png) | 从输入菜单打开豆包设置的帮助图，732×874 RGBA PNG。 | 豆包菜单变化时更新，配合后续两张构成实际输入设备设置说明。 |
-| [Resources/PermissionGuides/doubaoinput1.png](../Resources/PermissionGuides/doubaoinput1.png) | 豆包语音输入中定位麦克风选择器的帮助图，1430×1144 RGBA PNG。 | UI 版本变化时同步说明和箭头位置。 |
-| [Resources/PermissionGuides/doubaoinput2.png](../Resources/PermissionGuides/doubaoinput2.png) | 豆包选择自动检测或 vRemoteDr 2ch 的帮助图，1438×1148 RGBA PNG。 | 设备名称/路由提示变化时同步，不能据截图保证已安装驱动。 |
-| [Resources/PermissionGuides/permission-accessibility.png](../Resources/PermissionGuides/permission-accessibility.png) | 辅助功能系统设置截图，723×585；文件扩展名是 .png，但实际编码经文件头检查为 JPEG。 | 由 PermissionKind/GuideAsset 加载；换图时同步实际格式/后缀与截图标注。 |
-| [Resources/PermissionGuides/permission-app-management.png](../Resources/PermissionGuides/permission-app-management.png) | App Management 帮助截图，723×585 RGB PNG，用于相关豆包设置导航说明。 | 不是当前三种 RequestablePermission 之一；只按确切帮助用途维护。 |
-| [Resources/PermissionGuides/permission-bluetooth.png](../Resources/PermissionGuides/permission-bluetooth.png) | 蓝牙隐私系统设置截图，723×585，实际 JPEG 编码。 | 截图说明不代表授权已授予；替换后核对 macOS 版本。 |
-| [Resources/PermissionGuides/permission-input-monitoring.png](../Resources/PermissionGuides/permission-input-monitoring.png) | 输入监控系统设置截图，723×585，实际 JPEG 编码。 | 说明 HID/键盘观察授权；替换后做原生截图页验证。 |
-| [Resources/PermissionGuides/permission-microphone.png](../Resources/PermissionGuides/permission-microphone.png) | 历史/通用麦克风帮助截图，723×585，实际 JPEG 编码，仍保留并随帮助目录打包。 | 保留资产不代表当前产品申请 Mac capture；当前 RequestablePermission 无 microphone。 |
-| [Resources/RemoteImages/chromecast-front-and-volume-enhanced.png](../Resources/RemoteImages/chromecast-front-and-volume-enhanced.png) | 当前唯一原生遥控器图，1024×1536 RGBA PNG；正面与侧音量示意共同支撑 mapping 和语音键照片。来源/权利与物理准确性仍需发布前确认。 | 替换必须保持或重做 normalized anchors、比例和命中区，并运行几何检查与实机照片核对；package-app 只复制此图。 |
-
-### 9.2 保留品牌插件和版本资产
+### 9.1 当前资源
 
 | 文件 | 实际职责与关键实现 | 何时修改及验证边界 |
 | --- | --- | --- |
-| [Design/vRemoter-Logo-v1/README.md](../Design/vRemoter-Logo-v1/README.md) | 保留品牌设计源说明、Figma 开发插件导入步骤、V/波纹/遥控器造型约束与当前 v9 App 图标入口。 | 品牌迭代前读；与已删除旧 UI 设计无依赖，保留不等于发行权已确认。 |
-| [Design/vRemoter-Logo-v1/code.js](../Design/vRemoter-Logo-v1/code.js) | Figma Plugin API 创建 logo 系统画板、深浅/单色 mark、wordmark、小尺寸和色板；加载 Inter 字体并删除同名旧 Brand Logo System 后重建。 | 运行会修改当前 Figma 文件，尤其替换同名画板；修改品牌生成规则用它，不要当作 app 运行时代码执行。 |
-| [Design/vRemoter-Logo-v1/manifest.json](../Design/vRemoter-Logo-v1/manifest.json) | 本地 Figma 插件清单：vRemoter Logo、main=code.js、仅 figma、dynamic-page，networkAccess 为 none。 | 插件入口/能力变化在此；不是 App SwiftPM 依赖，也没有网站部署作用。 |
-| [Design/vRemoter-Logo-v1/vRemoter-app-icon-v5.png](../Design/vRemoter-Logo-v1/vRemoter-app-icon-v5.png) | 512×512 RGBA 的 v5 历史 App 图标导出。 | 保留设计迭代参考；当前打包不读取。 |
-| [Design/vRemoter-Logo-v1/vRemoter-app-icon-v5.svg](../Design/vRemoter-Logo-v1/vRemoter-app-icon-v5.svg) | 512×512 SVG/viewBox 220 的 v5 矢量图标；含背景圆角矩形及绿色波纹路径。 | 可编辑矢量历史源；不是当前 v9 的自动生成输入。 |
-| [Design/vRemoter-Logo-v1/vRemoter-app-icon-v6.png](../Design/vRemoter-Logo-v1/vRemoter-app-icon-v6.png) | 512×512 RGBA 的 v6 历史 App 图标导出。 | 用于历史方案比较，当前打包不读取。 |
-| [Design/vRemoter-Logo-v1/vRemoter-app-icon-v6.svg](../Design/vRemoter-Logo-v1/vRemoter-app-icon-v6.svg) | 512×512 SVG/viewBox 220 的 v6 矢量图标，包含 mark 的缩放平移分组与波纹路径。 | 编辑历史几何时使用；不要假设与 v9 完全等价。 |
-| [Design/vRemoter-Logo-v1/vRemoter-app-icon-v7.png](../Design/vRemoter-Logo-v1/vRemoter-app-icon-v7.png) | 512×512 RGBA 的 v7 历史 App 图标导出。 | 版本参考，不参与当前包。 |
-| [Design/vRemoter-Logo-v1/vRemoter-app-icon-v8.png](../Design/vRemoter-Logo-v1/vRemoter-app-icon-v8.png) | 512×512 RGBA 的 v8 历史 App 图标导出。 | 版本参考，不参与当前包。 |
-| [Design/vRemoter-Logo-v1/vRemoter-app-icon-v9.png](../Design/vRemoter-Logo-v1/vRemoter-app-icon-v9.png) | 512×512 RGBA，当前 package-app 复制为 vRemoterLogo.png 并缩放生成 vRemoter.icns 的唯一品牌输入；源码运行时 LogoAsset 也有读取回退。 | 替换会影响 App/Dock/菜单图标；核对小尺寸和来源，重新打包与 bundle checker。 |
-| [Design/vRemoter-Logo-v1/vRemoter-logo-v2-preview.png](../Design/vRemoter-Logo-v1/vRemoter-logo-v2-preview.png) | 1280×800 RGBA 的 v2 品牌画板预览。 | 静态参考，不由 App 加载；与其他版本保留用于追溯。 |
-| [Design/vRemoter-Logo-v1/vRemoter-logo-v2-preview.svg](../Design/vRemoter-Logo-v1/vRemoter-logo-v2-preview.svg) | 1280×800 SVG 品牌画板预览，含 mark 定义和阴影等矢量内容。 | 可编辑历史预览源，不是应用图标打包输入。 |
-| [Design/vRemoter-Logo-v1/vRemoter-logo-v2-preview.svg.png](../Design/vRemoter-Logo-v1/vRemoter-logo-v2-preview.svg.png) | 1280×1280 RGBA 的另一次 v2 SVG 预览栅格化文件，尺寸与 1280×800 画板导出不同。 | 保留历史输出；不要仅按相近文件名视为可互换。 |
-| [Design/vRemoter-Logo-v1/vRemoter-logo-v3-preview.png](../Design/vRemoter-Logo-v1/vRemoter-logo-v3-preview.png) | 1280×800 RGBA 的 v3 品牌系统静态画板预览，保留设计版本轨迹。 | 用于设计追溯/比较；当前 package-app、SwiftUI 和菜单图标不直接读取此预览。 |
-| [Design/vRemoter-Logo-v1/vRemoter-logo-v4-preview.png](../Design/vRemoter-Logo-v1/vRemoter-logo-v4-preview.png) | 1280×800 RGBA 的 v4 品牌系统静态画板预览，保留设计版本轨迹。 | 用于设计追溯/比较；当前 package-app、SwiftUI 和菜单图标不直接读取此预览。 |
-| [Design/vRemoter-Logo-v1/vRemoter-logo-v5-preview.png](../Design/vRemoter-Logo-v1/vRemoter-logo-v5-preview.png) | 1280×800 RGBA 的 v5 品牌系统静态画板预览，保留设计版本轨迹。 | 用于设计追溯/比较；当前 package-app、SwiftUI 和菜单图标不直接读取此预览。 |
-| [Design/vRemoter-Logo-v1/vRemoter-logo-v6-preview.png](../Design/vRemoter-Logo-v1/vRemoter-logo-v6-preview.png) | 1280×800 RGBA 的 v6 品牌系统静态画板预览，保留设计版本轨迹。 | 用于设计追溯/比较；当前 package-app、SwiftUI 和菜单图标不直接读取此预览。 |
-| [Design/vRemoter-Logo-v1/vRemoter-logo-v7-preview.png](../Design/vRemoter-Logo-v1/vRemoter-logo-v7-preview.png) | 1280×800 RGBA 的 v7 品牌系统静态画板预览，保留设计版本轨迹。 | 用于设计追溯/比较；当前 package-app、SwiftUI 和菜单图标不直接读取此预览。 |
-| [Design/vRemoter-Logo-v1/vRemoter-logo-v8-preview.png](../Design/vRemoter-Logo-v1/vRemoter-logo-v8-preview.png) | 1280×800 RGBA 的 v8 品牌系统静态画板预览，保留设计版本轨迹。 | 用于设计追溯/比较；当前 package-app、SwiftUI 和菜单图标不直接读取此预览。 |
-| [Design/vRemoter-Logo-v1/vRemoter-logo-v9-preview.png](../Design/vRemoter-Logo-v1/vRemoter-logo-v9-preview.png) | 1280×800 RGBA 的 v9 品牌系统静态画板预览，保留设计版本轨迹。 | 用于设计追溯/比较；当前 package-app、SwiftUI 和菜单图标不直接读取此预览。 |
-| [Design/vRemoter-Logo-v1/打开Logo插件.command](../Design/vRemoter-Logo-v1/打开Logo插件.command) | macOS zsh 启动器：进入目录，open -a Figma，并打开文件夹帮助导入插件。 | 只负责打开应用/目录，不自动导入 manifest 或运行插件。 |
+| [Resources/AppIcon/README.md](../Resources/AppIcon/README.md) | 通用占位图的用途、生成来源与重建/检查入口，说明它替代旧品牌图但不是最终产品标识。 | 最终命名、图标或生成方式变化时同步；新贡献者署名与资产来源需要明确，不自行改写继承版权。 |
+| [Resources/AppIcon/placeholder-app-icon.png](../Resources/AppIcon/placeholder-app-icon.png) | 1024×1024 RGBA PNG，由 Tools/generate-placeholder-icon.py 确定性生成；几何遥控器与圆形按钮，不含旧品牌字母。打包复制为 AppIcon.png，再生成 AppIcon.icns；LogoAsset 开发模式也直接读取。 | 修改生成源码后重建并运行 --check；核对 Dock、菜单栏、深浅外观及最小尺寸。实际显示与发布权利仍须独立审查。 |
+| [Resources/PermissionGuides/README.md](../Resources/PermissionGuides/README.md) | 说明八张继承的 macOS/豆包截图已删除；三语帮助改由 DebugWindowController.swift 的 PermissionIllustration 和语言表绘制，示意不承诺与系统版本逐像素一致。 | 帮助流程变化时更新原生示意与三份文案，再实测可读性、Light/Dark 和 VoiceOver；不要为旧缺图回退恢复已移除截图。 |
+| [Resources/RemoteImages/chromecast-front-and-volume-enhanced.png](../Resources/RemoteImages/chromecast-front-and-volume-enhanced.png) | 当前唯一原生遥控器图，1024×1536 RGBA PNG；正面与侧音量示意共同支撑 mapping 和语音键照片。来源/权利与物理准确性仍需发布前确认。 | 替换必须保持或重做 normalized anchors、比例和命中区，并运行几何检查与实机照片核对；package-app 只复制此遥控器图。 |
 
-## 10 工程文档与批准原型逐文件说明
+### 9.2 移除资产与历史边界
+
+- 原 Design/vRemoter-Logo-v1 的 21 个文件（Figma 插件、说明/启动器、v5–v9 App 图标与 v2–v9 预览导出）已从当前树移除，不再提供旧品牌打包或开发回退入口
+- Resources/PermissionGuides 中八张权限/豆包帮助图已移除；目录仅留说明。此前部分扩展名为 PNG 而内容为 JPEG 的文件也因此不属于当前资源，不能继续把它们列为随包内容
+- 已交付的历史 v8 HTML 按原字节保留，可能仍含旧品牌及内嵌设计元素；当前中性副本沿用该布局、图片和交互，不能因改显示名称就断言所有图形为全新原创
+- 代码来源、MIT 作者头与第三方通知继续保留。移除图片不等于移除继承实现的署名义务；照片、最终图标、贡献署名和技术身份迁移仍见发布审查及 TODO
+
+## 10 工程文档与原型逐文件说明
 
 | 文件 | 实际职责与关键实现 | 何时修改及验证边界 |
 | --- | --- | --- |
@@ -627,10 +585,11 @@ package-app.sh → dist/build/vRemote.app（开发临时签名）
 | [docs/PERMISSION_REQUESTS.md](../docs/PERMISSION_REQUESTS.md) | 权限查询和申请 API、明确按钮与重查/重连区别、App 身份/TCC、打包与原生验收边界。 | 权限失败排障入口；不能照终端已授权状态推断打包 App 也被授权。 |
 | [docs/PROJECT_OWNERSHIP_AND_LICENSES.md](../docs/PROJECT_OWNERSHIP_AND_LICENSES.md) | 代码/资产来源、参考与替换账、MIT 通知、BlackHole GPL 与对应源码阻塞、品牌/图标/包/签名/登录项/驱动身份决策表。 | 发布、改名、引入资产/参考代码、驱动分发之前必读；是工程审查记录，不是法律合规批准书。 |
 | [docs/chromecast-audio-resource-lifecycle.md](../docs/chromecast-audio-resource-lifecycle.md) | 输出/capture lease、测试音、首 PCM、尾音/停止、目标状态确认及 macOS 系统麦克风指示区别。 | 音频资源/卡键/停止错误改动时读；橙色系统指示可能来自另一个录音进程。 |
-| [docs/prototypes/README.md](../docs/prototypes/README.md) | 原型查看方式、三入口/七步/侧栏/绿点模拟范围、localStorage/JSON 边界；当前 v8 三语参考内含 665 个 key，Node 测试为 81 项。 | 核对设计参考版本时从此进入；当前 v8 基于用户批准的 v7 加三语文案，原型不嵌入生产 App。 |
-| [docs/prototypes/test-vremoter-onboarding-settings.cjs](../docs/prototypes/test-vremoter-onboarding-settings.cjs) | Node VM 编译 HTML 脚本，模拟 DOM/localStorage/Blob/语言环境；81 项回归涵盖交互、语言持久化/切换/备份与 v7 继承布局，另扫描 183 个英文界面场景不残留中文。 | Node 18+，无 npm 包/网络；默认读同目录 HTML，也可传文件参数或 VREMOTER_PROTOTYPE_HTML；不代替真实浏览器、SwiftUI 或 PCM。 |
-| [docs/prototypes/vremoter-onboarding-settings.html](../docs/prototypes/vremoter-onboarding-settings.html) | 当前 v8 独立离线 HTML，基于批准 v7 加简体/繁体/英文与 System、即时切换和简化文案；665 个内嵌翻译 key，图片/CSS/JS 自包含，localStorage 保存演示状态并模拟连接/权限/语音/备份确认。 | 以已交付参考文件整体归档，不擅改参考只为测试；不请求真实设备权限。原型 JSON 与原生 plist 不互通，旧备份/重置保留语言。 |
-| [docs/LOCALIZATION.md](../docs/LOCALIZATION.md) | 三语稳定偏好、系统解析、478 个语义 key/语言、原地刷新、两个资源入口、类型化错误和语言归档保护，以及系统/外部应用/技术诊断/简中截图边界。 | 改语言、应用文案、资源打包或热切换时更新；包含静态、Foundation、SwiftPM 与 App executable 验证命令和待完成原生视觉要求。 |
+| [docs/prototypes/README.md](../docs/prototypes/README.md) | 区分当前中性副本与逐字节保留的历史 v8，说明三入口/七步/侧栏/绿点模拟、三语、localStorage/JSON 边界与离线测试方法。 | 核对当前参考和测试入口从此开始；v8 继承批准 v7 布局，名称替换不代表重新批准全部设计或嵌入生产 App。 |
+| [docs/prototypes/remote-voice-utility-onboarding-settings.html](../docs/prototypes/remote-voice-utility-onboarding-settings.html) | 当前离线中性原型，从历史 v8 派生，沿用七步/设置布局、三语即时切换和模拟交互；666 个内嵌翻译 key（较历史 v8 增加 1 个占位名 key），可见名称改为三语描述性占位名。图片/CSS/JS 自包含，旧 localStorage 与演示备份标识保留兼容。 | 当前 UI 评审与默认原型回归入口；不请求真实权限，不证明收到 PCM/识别成功。JSON 演示备份与原生 plist 不互通；保留照片/设计来源审查。 |
+| [docs/prototypes/test-vremoter-onboarding-settings.cjs](../docs/prototypes/test-vremoter-onboarding-settings.cjs) | Node VM 编译 HTML 脚本，模拟 DOM/localStorage/Blob/语言环境；交互、语言持久化/切换/备份与 v7 继承布局回归历史基线为 81 项，当前中性副本另有 3 项品牌回归、共 84 项；另扫描 183 个英文界面场景。 | Node 18+，无 npm 包/网络；保留脚本名，默认读 remote-voice-utility-onboarding-settings.html，可传文件参数或 VREMOTER_PROTOTYPE_HTML 显式选择；不代替浏览器、SwiftUI 或 PCM。 |
+| [docs/prototypes/vremoter-onboarding-settings.html](../docs/prototypes/vremoter-onboarding-settings.html) | 已交付 v8 历史归档，本轮逐字节不变；基于批准 v7 加简体/繁体/英文与 System、即时切换和简化文案，665 个内嵌翻译 key，保留原品牌与演示存储格式。 | 用于历史追溯，不能为通过当前品牌检查而重写；当前 UI 修改应落在中性副本。历史文件存在不等于其旧名称是最终品牌或当前打包资源。 |
+| [docs/LOCALIZATION.md](../docs/LOCALIZATION.md) | 三语稳定偏好、系统解析、479 个语义 key/语言、原地刷新、两个资源入口、类型化错误和语言归档保护，以及系统/外部应用/技术诊断/三语原生帮助示意边界。 | 改语言、应用文案、资源打包或热切换时更新；包含静态、Foundation、SwiftPM 与 App executable 验证命令和待完成原生视觉要求。 |
 
 | 文件 | 实际职责与关键实现 | 何时修改及验证边界 |
 | --- | --- | --- |
@@ -651,7 +610,9 @@ package-app.sh → dist/build/vRemote.app（开发临时签名）
 | python3 Tools/check-mapping-layout.py | Python 3，跨平台 | 位置/顺序/几何与源码契约 | 实际 SwiftUI 像素 |
 | python3 Tools/check-native-interface.py | Python 3，跨平台 | 原生 UI 源码与原型/安全集成契约 | Swift 类型检查、绘制/可访问性 |
 | python3 Tools/check-runtime-cleanup.py | Python 3，跨平台 | 旧实现移除、公共能力/通知保留 | 生产编译、行为及发行合规 |
-| node docs/prototypes/test-vremoter-onboarding-settings.cjs | Node 18+，跨平台 | HTML 脚本在模拟 DOM 中的 81 项回归及 183 个英文文案场景 | 浏览器排版、SwiftUI、真实 PCM |
+| python3 Tools/check-branding.py | Python 3，跨平台 | 占位显示名/图标/帮助示意、旧资源移除、历史 v8/根 LICENSE 哈希、来源与兼容 ID 契约 | 原生渲染、商标/素材权利、最终命名和身份迁移 |
+| python3 Tools/generate-placeholder-icon.py --check | Python 3 标准库，跨平台 | 当前 PNG 与确定性生成源码逐字节一致 | macOS ICNS 转换、小尺寸视觉、最终品牌批准 |
+| node docs/prototypes/test-vremoter-onboarding-settings.cjs | Node 18+，跨平台 | 当前中性 HTML 的 84 项交互/语言/品牌回归与 183 个英文文案场景；显式历史路径为 81 项 | 浏览器排版、SwiftUI、真实 PCM |
 | python3 Tools/test-package-contents.py | Python 3 + zsh，跨平台 | 假工具隔离打包、脏目录重建、检查器拒绝能力 | 真 App、真签名/ICNS 生成、驱动 |
 | zsh package-app.sh 后跑 check-app-bundle.py | macOS 工具链 | 真 App 包资源/通知/容器与构建 | Developer ID、公证、安装验收和 GPL |
 | git diff --check | Git | 补丁空白错误 | 功能正确性 |
@@ -669,8 +630,11 @@ python3 Tools/check-mapping-layout.py
 python3 Tools/check-native-interface.py
 python3 Tools/check-runtime-cleanup.py
 python3 Tools/check-localization.py
+python3 Tools/check-branding.py
+python3 Tools/generate-placeholder-icon.py --check
 node --check docs/prototypes/test-vremoter-onboarding-settings.cjs
 node docs/prototypes/test-vremoter-onboarding-settings.cjs
+node docs/prototypes/test-vremoter-onboarding-settings.cjs docs/prototypes/vremoter-onboarding-settings.html
 python3 Tools/test-package-contents.py
 git diff --check
 ```
@@ -711,9 +675,9 @@ dist/build/vRemote.app/Contents/MacOS/vRemote --localization-self-test
 | 遥控器连接不稳定 | BLEBridge、HID bridge | ATVVStreamLifecycle、main 接线、会话失败 | transport/controller+HID probe+设备测试 |
 | 录音无声/尾音丢失 | BLEBridge.handleAudio、AudioPipe、voice controller | 目标工具选路、gain、close/tail/key ownership | PCM/租约/虚拟调度器+真实音频 |
 | 工具快捷键或自定义工具 | VoiceConfiguration、InputTrigger、VoiceApplicationLauncher | KeyboardTriggerObserver/State、controller、archive | launcher/键盘/四模式+工具实测 |
-| 名称或身份 | RemoteDisplayName 或 Packaging/LaunchAtLogin | 显示昵称与 bundle/driver/配对身份严格区分 | 名称/归档；身份变化另做迁移与 TCC |
+| 名称或身份 | RemoteDisplayName、三语显示文案或 Packaging/LaunchAtLogin | 昵称、产品占位名、作者署名和 bundle/driver/配对身份分别确认；参考 TODO | 名称/归档/品牌检查；技术身份变化另做迁移与 TCC |
 | 添加偏好到备份 | 对应纯偏好模型、ChromecastSettingsArchive | snapshot/restore/validate、UI reload、语言变更通知、确认与旧版本兼容 | 正常/缺字段/非法值/未知 key/重置隔离 |
-| 换图标或遥控器图 | Design 当前 v9 或 Resources 活动照片 | package-app、LogoAsset、MappingLayout、来源通知 | bundle checker+大小/热点/浅深视觉 |
+| 换图标或遥控器图 | Resources/AppIcon、占位图生成脚本或 Resources 活动照片 | package-app、LogoAsset、MappingLayout、来源通知、最终身份 TODO | 图标 --check、branding/bundle checker+大小/热点/浅深视觉 |
 | 修改三语与语言切换 | Localization、三份 Localizable.strings | 系统 InfoPlist.strings、LanguageStore、类型化状态/错误、归档语言、SwiftPM/手工包资源 | key/占位检查、LocalizationTests、两个可执行入口资源检查及原生三语视觉 |
 | 改发布版本/签名 | VERSION、Packaging/Info.plist、package/build 脚本 | bundle/login/pkg/driver 身份、迁移、许可、公证 | 真 bundle、安装/升级及当前许可审查 |
 | 排查日志或录音 | Log、WavRecorder、AppStorage、BLEBridge | 菜单开关和明确清理、采样率/隐私 | 检查本地文件，不上传私密音频作为默认动作 |
@@ -729,12 +693,12 @@ dist/build/vRemote.app/Contents/MacOS/vRemote --localization-self-test
 7. 常规 print(String) 在生产源码中被 Log.swift 重载，日志默认关闭；“没有终端输出”不一定表示回调没执行
 8. 新增/改动语言 key 要同步三份表和动态参数，语言切换不得清除已有失败、试用结果或按键配置
 9. WavRecorder 的 16 kHz header 是当前固定实现；协议虽支持 8 kHz，诊断文件也要按实际 codec 检查
-10. 既有品牌和 GPL 驱动问题不会因移除旧设备或改文件名自动解决
+10. 占位显示名与新图标不改变兼容 ID、继承版权、照片权利或 GPL 驱动门槛；不要全局替换 vRemote/vRemoter 字样破坏存储、路径、历史或通知
 11. VERSION 与打包 plist 是两处数据，脚本取 plist；同步版本前不要只改 VERSION
 
 ## 13 被忽略产物与运行时数据
 
-这里说明角色，不将其列入 150 个版本控制文件，也不枚举机器上的私人目录内容。
+这里说明角色，不将其列入 126 个当前保留/新增项目文件，也不枚举机器上的私人目录内容。
 
 | 路径/模式 | 来源和用途 | 维护边界 |
 | --- | --- | --- |
@@ -756,23 +720,23 @@ App 的实际数据由 AppStorage 使用用户 Library 的标准 Logs/Applicatio
 - 当前只明确支持已知 Chromecast Voice Remote VID/PID；实体设备、多台 Mac、改系统蓝牙名和 IR 键都存在边界
 - BlackHole 派生驱动输入未固定版本/哈希，仓库没有完整对应源码；现有 binary patch 不证明可复现，也不证明完整 GPL 通知和分发路线已成立
 - 驱动、App、PKG 的发布许可安排需明确；App-only 不等于可将驱动按 MIT 分发
-- 继承名称、图标、照片、截图、bundle/signing/login-item/driver 身份需按实际发布计划确认，不在文档整理中擅自替换或去除来源署名
+- 可见产品名现为描述性占位名、图标为通用几何占位，旧独立品牌图和帮助截图已移除；最终产品名、贡献署名、图标和保留照片的发布权利仍待确认，不替换继承版权人
+- vRemote target/executable/app 路径、local.simaqingfeng.vRemote bundle/signing/login-item 体系、PKG/DMG 名称、偏好/归档/数据目录及驱动身份暂为兼容保留；是否更换应连同升级/并存、TCC 重授权和用户数据迁移一起设计及验收
 - 三语资源与动态刷新已有实现；完整三语显示、长文本布局、系统权限弹窗及实际工具反馈仍需逐页原生验收
-- 诊断 WAV 固定采样率、帮助图实际编码与扩展名不同等工程细节应在扩展支持或素材重制时核对，本文仅记录，不宣称已修复
+- 诊断 WAV 固定采样率应在扩展 codec 支持时核对；三语原生帮助是示意而非真实系统截图，需要按实际 macOS/工具版本验证说明准确性
 
 这些事项的决策与证据分别保存在[所有权与许可证说明](PROJECT_OWNERSHIP_AND_LICENSES.md)、[TODO](../TODO.md)和[验收清单](CHROMECAST_ACCEPTANCE.md)。不要把清理完成、测试通过或文档完整性当作对外发行批准。
 
 ## 15 完整性复核方法
 
-本指南完成时逐项比较了“Git 保留文件 + 本轮新增文档”与逐文件表格，要求每个文件至少有一个实际存在的相对链接和明确职责。核对目标是 **150/150 个文件有说明，0 个遗漏，0 个本地文件链接失效**；目录树与统计来自同一清单。此数字是当前快照，新增文件后应重新计算。
+清单将“Git 保留且实际存在的文件 + 本轮未忽略的新文件”与逐文件表格逐项比较，要求每个文件有实际相对链接及明确职责。本轮目标为 **126/126 个文件有说明，0 个遗漏，0 个本地文件链接失效**；目录树与分类统计使用同一清单。文件、工具或资源变化后应重新复核；这个文档完整性目标不能当成编译、测试或发行验收结果。
 
 更新指南时可以从仓库根目录列出准确文件名，避免 Git 对中文文件名的展示转义：
 
 ```sh
-git ls-files -z
-# 未提交的新文件需要另行并入清单
-git ls-files --others --exclude-standard -z
-# 先核实不存在的删除路径，再检查文档相对链接与数量
+git ls-files --cached --others --exclude-standard -z
+# 对输出去重并只保留实际存在的普通文件；已跟踪但已删除的路径不计
+# 从同一集合生成树/目录计数，检查逐文件表格与相对链接覆盖
 git diff --check
 ```
 

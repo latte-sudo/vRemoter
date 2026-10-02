@@ -22,29 +22,26 @@ for localization in "$SCRIPT_DIR/Packaging"/*.lproj; do
   [[ -d "$localization" ]] || continue
   ditto "$localization" "$CONTENTS/Resources/${localization:t}"
 done
-cp "$SCRIPT_DIR/Design/vRemoter-Logo-v1/vRemoter-app-icon-v9.png" \
-  "$CONTENTS/Resources/vRemoterLogo.png"
+cp "$SCRIPT_DIR/Resources/AppIcon/placeholder-app-icon.png" \
+  "$CONTENTS/Resources/AppIcon.png"
 
-ICONSET="$SCRIPT_DIR/dist/vRemoter.iconset"
+ICONSET="$SCRIPT_DIR/dist/AppIcon.iconset"
 rm -rf "$ICONSET"
 mkdir -p "$ICONSET"
-sips -z 16 16 "$CONTENTS/Resources/vRemoterLogo.png" --out "$ICONSET/icon_16x16.png" >/dev/null
-sips -z 32 32 "$CONTENTS/Resources/vRemoterLogo.png" --out "$ICONSET/icon_16x16@2x.png" >/dev/null
-sips -z 32 32 "$CONTENTS/Resources/vRemoterLogo.png" --out "$ICONSET/icon_32x32.png" >/dev/null
-sips -z 64 64 "$CONTENTS/Resources/vRemoterLogo.png" --out "$ICONSET/icon_32x32@2x.png" >/dev/null
-sips -z 128 128 "$CONTENTS/Resources/vRemoterLogo.png" --out "$ICONSET/icon_128x128.png" >/dev/null
-sips -z 256 256 "$CONTENTS/Resources/vRemoterLogo.png" --out "$ICONSET/icon_128x128@2x.png" >/dev/null
-sips -z 256 256 "$CONTENTS/Resources/vRemoterLogo.png" --out "$ICONSET/icon_256x256.png" >/dev/null
-sips -z 512 512 "$CONTENTS/Resources/vRemoterLogo.png" --out "$ICONSET/icon_256x256@2x.png" >/dev/null
-sips -z 512 512 "$CONTENTS/Resources/vRemoterLogo.png" --out "$ICONSET/icon_512x512.png" >/dev/null
-cp "$CONTENTS/Resources/vRemoterLogo.png" "$ICONSET/icon_512x512@2x.png"
-iconutil -c icns "$ICONSET" -o "$CONTENTS/Resources/vRemoter.icns"
+sips -z 16 16 "$CONTENTS/Resources/AppIcon.png" --out "$ICONSET/icon_16x16.png" >/dev/null
+sips -z 32 32 "$CONTENTS/Resources/AppIcon.png" --out "$ICONSET/icon_16x16@2x.png" >/dev/null
+sips -z 32 32 "$CONTENTS/Resources/AppIcon.png" --out "$ICONSET/icon_32x32.png" >/dev/null
+sips -z 64 64 "$CONTENTS/Resources/AppIcon.png" --out "$ICONSET/icon_32x32@2x.png" >/dev/null
+sips -z 128 128 "$CONTENTS/Resources/AppIcon.png" --out "$ICONSET/icon_128x128.png" >/dev/null
+sips -z 256 256 "$CONTENTS/Resources/AppIcon.png" --out "$ICONSET/icon_128x128@2x.png" >/dev/null
+sips -z 256 256 "$CONTENTS/Resources/AppIcon.png" --out "$ICONSET/icon_256x256.png" >/dev/null
+sips -z 512 512 "$CONTENTS/Resources/AppIcon.png" --out "$ICONSET/icon_256x256@2x.png" >/dev/null
+sips -z 512 512 "$CONTENTS/Resources/AppIcon.png" --out "$ICONSET/icon_512x512.png" >/dev/null
+cp "$CONTENTS/Resources/AppIcon.png" "$ICONSET/icon_512x512@2x.png"
+iconutil -c icns "$ICONSET" -o "$CONTENTS/Resources/AppIcon.icns"
 rm -rf "$ICONSET"
 
-if [[ -d "$SCRIPT_DIR/Resources/PermissionGuides" ]]; then
-  ditto "$SCRIPT_DIR/Resources/PermissionGuides" \
-    "$CONTENTS/Resources/PermissionGuides"
-fi
+# Permission help is drawn with localized native controls; no inherited screenshots.
 # Only the image used by the native Chromecast mapping canvas is bundled.
 mkdir -p "$CONTENTS/Resources/RemoteImages"
 cp "$SCRIPT_DIR/Resources/RemoteImages/chromecast-front-and-volume-enhanced.png" \

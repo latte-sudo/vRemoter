@@ -1,3 +1,5 @@
+"CFBundleDisplayName" = "遥控器语音工具";
+"CFBundleName" = "遥控器语音工具";
 "NSBluetoothAlwaysUsageDescription" = "连接蓝牙语音遥控器并接收声音。";
 "NSBluetoothPeripheralUsageDescription" = "连接蓝牙语音遥控器并接收声音。";
 "NSInputMonitoringUsageDescription" = "接收 Chromecast 遥控器按键和你选择的键盘语音快捷键。";

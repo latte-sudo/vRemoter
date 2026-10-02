@@ -46,14 +46,14 @@ with tempfile.TemporaryDirectory(prefix="vremote-package-fixture-") as temporary
     sources = [
         "package-app.sh", "Packaging/Info.plist", "LICENSE", "THIRD_PARTY_NOTICES.md",
         "docs/PROJECT_OWNERSHIP_AND_LICENSES.md",
-        "Design/vRemoter-Logo-v1/vRemoter-app-icon-v9.png",
+        "Resources/AppIcon/placeholder-app-icon.png",
         "Resources/RemoteImages/chromecast-front-and-volume-enhanced.png",
     ]
     for relative in sources:
         target = fixture / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(root / relative, target)
-    for directory in [root / "Resources/PermissionGuides", root / "Sources/vRemote/Resources", *(root / "Packaging").glob("*.lproj")]:
+    for directory in [root / "Sources/vRemote/Resources", *(root / "Packaging").glob("*.lproj")]:
         shutil.copytree(directory, fixture / directory.relative_to(root))
 
     bin_dir = fixture / "fake-bin"
@@ -83,9 +83,11 @@ with tempfile.TemporaryDirectory(prefix="vremote-package-fixture-") as temporary
         assert not list(resources.rglob("*.bundle")), "stale dependency bundle was packaged"
         assert not (resources / "Commerce").exists()
         assert not (resources / "BuyMeACoffee").exists()
-        assert (resources / "vRemoterLogo.png").is_file()
-        assert (resources / "vRemoter.icns").is_file()
-        assert len(list((resources / "PermissionGuides").glob("*.png"))) == 8
+        assert (resources / "AppIcon.png").is_file()
+        assert (resources / "AppIcon.icns").is_file()
+        assert not (resources / "PermissionGuides").exists()
+        assert not (resources / "vRemoterLogo.png").exists()
+        assert not (resources / "vRemoter.icns").exists()
         assert plistlib.loads((contents / "Info.plist").read_bytes())["CFBundleIdentifier"] == "local.simaqingfeng.vRemote"
 
         checker = [sys.executable, str(root / "Tools/check-app-bundle.py"), str(contents.parent)]
@@ -94,7 +96,7 @@ with tempfile.TemporaryDirectory(prefix="vremote-package-fixture-") as temporary
         # Synthetic headers exercise the content checker only; neither fixture
         # becomes a usable app or a correctly signed executable.
         (contents / "MacOS/vRemote").write_bytes(b"\xcf\xfa\xed\xfe" + b"fixture")
-        (resources / "vRemoter.icns").write_bytes(b"icns" + b"\x00\x00\x00\x10" + b"fixture")
+        (resources / "AppIcon.icns").write_bytes(b"icns" + b"\x00\x00\x00\x10" + b"fixture")
         valid_contents = subprocess.run(checker, text=True, capture_output=True)
         assert valid_contents.returncode == 0, valid_contents.stdout + valid_contents.stderr
         notice = resources / "Licenses/LICENSE"
@@ -109,6 +111,16 @@ with tempfile.TemporaryDirectory(prefix="vremote-package-fixture-") as temporary
         invalid_translation = subprocess.run(checker, text=True, capture_output=True)
         assert invalid_translation.returncode != 0 and "translation resource missing" in invalid_translation.stderr
         translation.write_bytes(original_translation)
+        inherited_icon = resources / "vRemoterLogo.png"
+        inherited_icon.write_text("Obsolete branding")
+        invalid_icon = subprocess.run(checker, text=True, capture_output=True)
+        assert invalid_icon.returncode != 0 and "inherited branded icon" in invalid_icon.stderr
+        inherited_icon.unlink()
+        old_guides = resources / "PermissionGuides"
+        old_guides.mkdir()
+        invalid_guides = subprocess.run(checker, text=True, capture_output=True)
+        assert invalid_guides.returncode != 0 and "inherited permission screenshots" in invalid_guides.stderr
+        old_guides.rmdir()
         stale_bundle = resources / "TelemetryDeck_SwiftSDK.bundle"
         stale_bundle.mkdir()
         invalid_bundle = subprocess.run(checker, text=True, capture_output=True)
@@ -119,6 +131,10 @@ with tempfile.TemporaryDirectory(prefix="vremote-package-fixture-") as temporary
             stale.mkdir()
             (stale / "stale-resource.txt").write_text("Must disappear on rebuild")
             (resources / "RemoteImages/x6-remote.png").write_text("Must disappear on rebuild")
+            (resources / "vRemoterLogo.png").write_text("Must disappear on rebuild")
+            (resources / "vRemoter.icns").write_text("Must disappear on rebuild")
+            (resources / "PermissionGuides").mkdir()
+            (resources / "PermissionGuides/permission-bluetooth.png").write_text("Must disappear on rebuild")
 
 print("PASS: isolated clean/rebuild packaging copies notices and only current resources")
 print("PASS: synthetic content-checker fixtures reject non-Mach-O binaries, changed notices and stale telemetry")

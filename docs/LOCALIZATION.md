@@ -15,13 +15,16 @@ configuration, reset a trial, clear feedback, or stop/restart a voice session.
 ## Resources and packaging
 
 `Sources/vRemote/Resources/{en,zh-Hans,zh-Hant}.lproj/Localizable.strings` contain
-478 reviewed semantic keys in each language. `L10n.tr` resolves the selected
+479 reviewed semantic keys in each language. `L10n.tr` resolves the selected
 language; `{0}`, `{1}` and subsequent numbered placeholders allow reordering.
 Substitution happens once against the original template, so user text containing
 braces is not interpreted. Labels with numeric counts avoid English singular/
 plural grammar. Product names, physical key symbols and app/file/device names
 are preserved. A missing translated key falls back to English; static checks
-reject missing keys before release.
+reject missing keys before release. The app display name is a descriptive
+placeholder: Remote Voice Utility / 遥控器语音工具 / 遙控器語音工具. The stored keys
+`vRemoter.appLanguage` and `vRemoter.appAppearance` remain technical compatibility
+identifiers; translating visible names does not rename or erase existing settings.
 
 SwiftPM processes these resources and provides `Bundle.module`. `package-app.sh`
 copies only the three app-owned `.lproj` directories into `Contents/Resources`,
@@ -49,9 +52,8 @@ without changing settings.
 
 macOS-owned permission prompts, standard file-panel controls and external speech
 apps follow their own language settings. The app supplies three localized usage
-strings, but does not override the OS prompt language. Original permission-guide
-screenshots contain Simplified Chinese; English/Traditional views instead use a
-translated, explicitly labelled illustration. Legal/source notices are preserved
+strings, but does not override the OS prompt language. All three languages use translated, explicitly labelled native permission-help
+illustrations. The eight inherited screenshots have been removed. Legal/source notices are preserved
 without altering obligations. User-entered names and shortcuts stay unchanged.
 
 ## Verification

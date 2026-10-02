@@ -60,21 +60,17 @@ check(sorted(path.name for path in photos.iterdir()) == [photo_name], "unexpecte
 check((photos / photo_name).read_bytes() == (root / "Resources/RemoteImages" / photo_name).read_bytes(),
       "active remote image differs from source")
 
-logo = resources / "vRemoterLogo.png"
-check(logo.is_file(), "app/menu logo is missing")
-check(logo.read_bytes() == (root / "Design/vRemoter-Logo-v1/vRemoter-app-icon-v9.png").read_bytes(),
-      "app/menu logo differs from source")
+logo = resources / "AppIcon.png"
+check(logo.is_file(), "placeholder app/menu icon is missing")
+check(logo.read_bytes() == (root / "Resources/AppIcon/placeholder-app-icon.png").read_bytes(),
+      "placeholder app/menu icon differs from source")
 icon = resources / info["CFBundleIconFile"]
 check(icon.is_file(), "compiled app icon is missing")
 check(icon.read_bytes()[:4] == b"icns" and icon.stat().st_size > 8, "compiled app icon is not a valid ICNS container")
 
-guides = resources / "PermissionGuides"
-source_guides = root / "Resources/PermissionGuides"
-expected_guides = sorted(path.name for path in source_guides.glob("*.png"))
-check(len(expected_guides) == 8, "source permission-guide inventory changed; review packaging requirements")
-check(sorted(path.name for path in guides.glob("*.png")) == expected_guides, "packaged permission guides are incomplete")
-for name in expected_guides:
-    check((guides / name).read_bytes() == (source_guides / name).read_bytes(), f"permission guide differs: {name}")
+check(not (resources / "PermissionGuides").exists(), "inherited permission screenshots were packaged")
+for old_name in ["vRemoterLogo.png", "vRemoter.icns"]:
+    check(not (resources / old_name).exists(), f"inherited branded icon was packaged: {old_name}")
 
 for language in ["en", "zh-Hans", "zh-Hant"]:
     source = root / "Sources/vRemote/Resources" / (language + ".lproj") / "Localizable.strings"

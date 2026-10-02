@@ -39,7 +39,7 @@ for locale, table in tables.items():
         if locale == 'en':
             check(not re.search('[\u3400-\u9fff]', value), f'{key}: Chinese text leaked into English UI')
     info = read_table(root / 'Packaging' / (locale + '.lproj') / 'InfoPlist.strings')
-    check(set(info) == {'NSBluetoothAlwaysUsageDescription', 'NSBluetoothPeripheralUsageDescription', 'NSInputMonitoringUsageDescription'}, f'{locale}: permission metadata parity')
+    check(set(info) == {'CFBundleDisplayName', 'CFBundleName', 'NSBluetoothAlwaysUsageDescription', 'NSBluetoothPeripheralUsageDescription', 'NSInputMonitoringUsageDescription'}, f'{locale}: permission metadata parity')
 
 # Scan complete Swift literals, including nested interpolation. Comments, logs,
 # legal attribution, device names and immutable protocol diagnostics are separate.
@@ -95,7 +95,7 @@ for path in (root / 'Sources/vRemote').rglob('*.swift'):
     # keyboard labels, product/OS names, and interpolated user content are exempt.
     for literal in re.findall(r'\b(?:Text|Button|Label|Toggle|Picker|TextField)\("([^"\\]*)"', source):
         if not re.search('[A-Za-z]', literal): continue
-        check(literal in ['vRemoter', 'Chromecast', 'vRemoteDr 2ch'], f'{path.name}: direct English view text: {literal}')
+        check(literal in ['Chromecast', 'vRemoteDr 2ch'], f'{path.name}: direct English view text: {literal}')
 
 localization = (root / 'Sources/vRemote/Localization.swift').read_text()
 check('case traditionalChinese = "zh-Hant"' in localization, 'Traditional Chinese preference missing')

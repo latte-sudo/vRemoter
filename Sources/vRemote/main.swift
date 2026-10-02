@@ -28,7 +28,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var chromecastHIDConnected = false
     private var chromecastBLEConnected = false
     private var chromecastRemoteStreaming = false
-    private var menuStatusSummary = "vRemoter"
+    private var menuStatusSummary = L10n.tr("shell.window.title")
     private var voiceReception = MenuBarVoiceReception()
     private var voiceReceptionTimer: Timer?
     private var renderedVoiceReception: Bool?
@@ -64,7 +64,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let appVersion = Bundle.main.object(
             forInfoDictionaryKey: "CFBundleShortVersionString"
         ) as? String ?? "development"
-        print("[APP] ===== vRemoter \(appVersion) started =====")
+        print("[APP] ===== \(L10n.tr("shell.window.title")) \(appVersion) started =====")
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.image = MenuBarStatusIcon.image(receivingVoice: false)
@@ -376,7 +376,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else {
             statusText = L10n.tr("shell.status.ready")
         }
-        menuStatusSummary = "vRemoter · \(remoteName) · \(statusText)"
+        menuStatusSummary = "\(L10n.tr("shell.window.title")) · \(remoteName) · \(statusText)"
         updateMenuVoiceIndicator()
         headerLabel.title = "\(remoteName) · \(statusText)"
         debugWindow.update(

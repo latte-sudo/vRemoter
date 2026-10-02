@@ -35,6 +35,12 @@ jobs:
         run: python3 Tools/check-native-interface.py
       - name: Runtime cleanup contracts
         run: python3 Tools/check-runtime-cleanup.py
+      - name: Branding, provenance and compatibility contracts
+        run: python3 Tools/check-branding.py
+      - name: Reproduce temporary neutral app icon
+        run: python3 Tools/generate-placeholder-icon.py --check
+      - name: Historical prototype regressions
+        run: node docs/prototypes/test-vremoter-onboarding-settings.cjs docs/prototypes/vremoter-onboarding-settings.html
       - name: Isolated packaging regression
         run: python3 Tools/test-package-contents.py
       - name: Build development app bundle

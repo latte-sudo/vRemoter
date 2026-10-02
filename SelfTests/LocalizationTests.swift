@@ -46,6 +46,9 @@ struct LocalizationTests {
         }
         precondition(L10n.text("storage.byte", language: .english, arguments: ["1"]) == "1 byte")
         precondition(L10n.text("storage.bytes", language: .english, arguments: ["2"]) == "2 bytes")
+        precondition(L10n.text("shell.window.title", language: .english) == "Remote Voice Utility")
+        precondition(L10n.text("shell.window.title", language: .simplifiedChinese) == "遥控器语音工具")
+        precondition(L10n.text("shell.window.title", language: .traditionalChinese) == "遙控器語音工具")
         precondition(L10n.text("language.title", language: .english) == "Language")
         precondition(L10n.text("language.title", language: .simplifiedChinese) == "语言")
         precondition(L10n.text("language.title", language: .traditionalChinese) == "語言")

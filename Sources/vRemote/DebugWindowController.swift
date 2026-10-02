@@ -47,22 +47,6 @@ enum PermissionKind: String, Identifiable, CaseIterable {
         )
     }
 
-    var screenshotNames: [String] {
-        switch self {
-        case .doubaoInput:
-            [
-                "permission-app-management",
-                "doubaoinput0",
-                "doubaoinput1",
-                "doubaoinput2"
-            ]
-        case .microphone: ["permission-microphone", "permission-microphone"]
-        case .accessibility: ["permission-accessibility", "permission-accessibility"]
-        case .inputMonitoring: ["permission-input-monitoring", "permission-input-monitoring"]
-        case .bluetooth: ["permission-bluetooth", "permission-bluetooth"]
-        }
-    }
-
     var guidance: [String] {
         switch self {
         case .doubaoInput:
@@ -95,11 +79,7 @@ enum PermissionKind: String, Identifiable, CaseIterable {
         }
     }
 
-    var pageCount: Int { screenshotNames.count }
-
-    func screenshotName(for page: Int) -> String {
-        screenshotNames[min(max(page, 0), pageCount - 1)]
-    }
+    var pageCount: Int { guidance.count }
 }
 
 private enum ConsoleTheme {
@@ -123,9 +103,9 @@ private enum ConsoleTheme {
 enum LogoAsset {
     static let image: NSImage = {
         let candidates: [URL?] = [
-            Bundle.main.url(forResource: "vRemoterLogo", withExtension: "png"),
+            Bundle.main.url(forResource: "AppIcon", withExtension: "png"),
             URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-                .appendingPathComponent("Design/vRemoter-Logo-v1/vRemoter-app-icon-v9.png")
+                .appendingPathComponent("Resources/AppIcon/placeholder-app-icon.png")
         ]
         for candidate in candidates.compactMap({ $0 }) {
             if let image = NSImage(contentsOf: candidate) { return image }
@@ -135,29 +115,16 @@ enum LogoAsset {
         image.lockFocus()
         NSColor.systemIndigo.setFill()
         NSBezierPath(roundedRect: NSRect(x: 4, y: 4, width: 120, height: 120), xRadius: 28, yRadius: 28).fill()
-        let text = "vR" as NSString
-        text.draw(at: NSPoint(x: 25, y: 36), withAttributes: [
-            .font: NSFont.boldSystemFont(ofSize: 50), .foregroundColor: NSColor.white
-        ])
+        // Geometry-only fallback: no upstream monogram or final-brand assumption.
+        NSColor.white.setFill()
+        NSBezierPath(roundedRect: NSRect(x: 43, y: 20, width: 42, height: 88), xRadius: 18, yRadius: 18).fill()
+        NSColor.darkGray.setFill()
+        NSBezierPath(ovalIn: NSRect(x: 51, y: 72, width: 26, height: 26)).fill()
+        NSBezierPath(ovalIn: NSRect(x: 59, y: 49, width: 10, height: 10)).fill()
+        NSBezierPath(ovalIn: NSRect(x: 59, y: 30, width: 10, height: 10)).fill()
         image.unlockFocus()
         return image
     }()
-}
-
-private enum GuideAsset {
-    static func image(named name: String) -> NSImage? {
-        let candidates: [URL?] = [
-            Bundle.main.resourceURL?
-                .appendingPathComponent("PermissionGuides", isDirectory: true)
-                .appendingPathComponent("\(name).png"),
-            URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-                .appendingPathComponent("Resources/PermissionGuides/\(name).png")
-        ]
-        for candidate in candidates.compactMap({ $0 }) {
-            if let image = NSImage(contentsOf: candidate) { return image }
-        }
-        return nil
-    }
 }
 
 enum ConsoleModal: Identifiable {
@@ -659,11 +626,9 @@ private struct PermissionGuideView: View {
                 Spacer()
             }
 
-            GuideScreenshot(kind: kind, page: $page)
+            PermissionIllustration(kind: kind, page: $page)
                 .frame(height: 320)
-            if AppLanguage.selected.resolved() != .simplifiedChinese {
-                Text(L10n.tr("permission.guide.illustration")).font(.caption).foregroundStyle(ConsoleTheme.secondary)
-            }
+            Text(L10n.tr("permission.guide.illustration")).font(.caption).foregroundStyle(ConsoleTheme.secondary)
 
             Text(kind.guidance[page])
                 .font(.system(size: 13, weight: .medium))
@@ -694,35 +659,15 @@ private struct PermissionGuideView: View {
     }
 }
 
-private struct GuideScreenshot: View {
+private struct PermissionIllustration: View {
     @ObservedObject private var languageStore = LanguageStore.shared
     let kind: PermissionKind
     @Binding var page: Int
 
     var body: some View {
-        GeometryReader { proxy in
+        GeometryReader { _ in
             ZStack {
-                if AppLanguage.selected.resolved() == .simplifiedChinese, let image = GuideAsset.image(named: kind.screenshotName(for: page)) {
-                    Image(nsImage: image)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: proxy.size.width, height: proxy.size.height)
-                } else {
-                    screenshotPlaceholder
-                }
-
-                if AppLanguage.selected.resolved() == .simplifiedChinese && (kind != .doubaoInput || page == 0) {
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(ConsoleTheme.red, lineWidth: 3)
-                        .frame(
-                            width: proxy.size.width * highlightWidth,
-                            height: proxy.size.height * highlightHeight
-                        )
-                        .position(
-                            x: proxy.size.width * highlightX,
-                            y: proxy.size.height * highlightY
-                        )
-                }
+                schematic
 
                 HStack {
                     guideArrow(systemName: "chevron.left", enabled: page > 0) {
@@ -741,7 +686,7 @@ private struct GuideScreenshot: View {
         }
     }
 
-    private var screenshotPlaceholder: some View {
+    private var schematic: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 12) {
                 Text(kind == .doubaoInput ? L10n.tr("permission.guide.doubaoSettings") : L10n.tr("permission.settings.title"))
@@ -762,7 +707,7 @@ private struct GuideScreenshot: View {
                     .foregroundStyle(ConsoleTheme.secondary)
                 HStack {
                     Image(nsImage: LogoAsset.image).resizable().frame(width: 30, height: 30)
-                    Text(kind == .doubaoInput ? "vRemoteDr 2ch" : "vRemoter")
+                    Text(kind == .doubaoInput ? "vRemoteDr 2ch" : L10n.tr("shell.window.title"))
                     Spacer()
                     Toggle("", isOn: .constant(false)).labelsHidden()
                 }
@@ -774,32 +719,6 @@ private struct GuideScreenshot: View {
             .padding(20)
         }
         .foregroundStyle(ConsoleTheme.text)
-    }
-
-    private var secondPageY: CGFloat {
-        switch kind {
-        case .doubaoInput: 0.5
-        case .microphone: 0.92
-        case .accessibility: 0.89
-        case .inputMonitoring: 0.46
-        case .bluetooth: 0.74
-        }
-    }
-
-    private var highlightWidth: CGFloat {
-        kind == .doubaoInput ? 0.36 : (page == 0 ? 0.38 : 0.45)
-    }
-
-    private var highlightHeight: CGFloat {
-        kind == .doubaoInput ? 0.11 : 0.10
-    }
-
-    private var highlightX: CGFloat {
-        kind == .doubaoInput ? 0.60 : (page == 0 ? 0.255 : 0.62)
-    }
-
-    private var highlightY: CGFloat {
-        kind == .doubaoInput ? 0.40 : (page == 0 ? 0.25 : secondPageY)
     }
 
     private func guideArrow(

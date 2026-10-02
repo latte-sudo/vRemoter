@@ -1,7 +1,7 @@
 # Chromecast release acceptance
 
 This is the current release checklist for the Chromecast-only runtime and
-native interface with the approved v7 design reference. It consolidates the first-round, feedback,
+native interface with the neutral v8 reference derived from the approved v7 layout. It consolidates the first-round, feedback,
 appearance and display-name checklists. Unchecked items remain acceptance work;
 passing CI or an HTML simulation is not evidence that they were exercised.
 
@@ -13,8 +13,8 @@ virtual route, speech tool/version and results. Scope is defined in
 
 - [ ] macOS app build and protocol/model/gesture/voice/archive suites pass on the
   candidate commit, with 20 deterministic voice-suite repetitions
-- [ ] Mapping, native-interface and runtime-cleanup source checks pass; approved
-  prototype regression passes and its HTML/reference files remain intact
+- [ ] Mapping, native-interface, runtime-cleanup and branding source checks pass;
+  the current neutral prototype regression passes and the historical HTML remains byte-identical
 - [ ] Real app-only development bundle passes notice/resource validation;
   isolated packaging fixture also passes without reintroducing stale SDK assets
 - [ ] Bundled `LICENSE`, `THIRD_PARTY_NOTICES.md` and ownership inventory match
@@ -106,7 +106,9 @@ Architecture and persistent settings: [native interface](NATIVE_INTERFACE_IMPLEM
 
 ## Distribution gates
 
-- [ ] Resolve owner-controlled branding/asset rights and app/driver identity choices
+- [ ] Choose the final product/author name, confirm asset rights and decide the
+  coordinated app/driver identity migration; descriptive names and the generic
+  icon are temporary, while inherited source copyright notices remain
 - [ ] Verify driver input provenance, corresponding source, notices and distribution
   license route before any driver/PKG release
 - [ ] Establish Developer ID signing/notarization and test actual installation,

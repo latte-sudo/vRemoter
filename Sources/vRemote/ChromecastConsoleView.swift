@@ -208,7 +208,10 @@ struct ChromecastConsoleView: View {
                 Label(connected ? L10n.tr("console.connection.ready") : L10n.tr("console.connection.waiting"), systemImage: connected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 11)).foregroundColor(connected ? ConsoleDesignTokens.success : ConsoleDesignTokens.secondaryText)
                 Divider()
-                HStack { Text("vRemoter"); Spacer(); Text("Chromecast") }.font(.system(size: 10)).foregroundColor(ConsoleDesignTokens.secondaryText)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(L10n.tr("shell.window.title"))
+                    Text(L10n.tr("console.brand.placeholder"))
+                }.font(.system(size: 10)).foregroundColor(ConsoleDesignTokens.secondaryText)
             }.frame(maxWidth: .infinity, alignment: .leading).padding(20)
         }.multilineTextAlignment(.leading)
             .frame(width: ConsoleDesignTokens.sidebarWidth, alignment: .leading)
@@ -229,7 +232,7 @@ struct ChromecastConsoleView: View {
 
     private var header: some View {
         HStack(spacing: 16) {
-            Text("vRemoter").font(.system(size: 12, weight: .semibold))
+            Text(L10n.tr("shell.window.title")).font(.system(size: 12, weight: .semibold))
             Text(L10n.tr("console.header.breadcrumb", setup ? L10n.tr("console.header.firstUse") : page.title)).font(.system(size: 12)).foregroundColor(ConsoleDesignTokens.secondaryText)
             Spacer()
             ChromecastGlobalVoiceHeader(model: model)
@@ -868,7 +871,7 @@ struct ChromecastConsoleView: View {
         message = ConsoleMessage("console.tool.selectedHelp")
     }
     @discardableResult private func exportSettings() -> Bool {
-        let panel = NSSavePanel(); panel.nameFieldStringValue = "Chromecast-vRemoter-v1.plist"
+        let panel = NSSavePanel(); panel.nameFieldStringValue = "Remote-Voice-Settings-v1.plist"
         guard panel.runModal() == .OK, let url = panel.url else { return false }
         do { try ChromecastSettingsArchive.exportData().write(to: url, options: .atomic); message = ConsoleMessage("console.backup.exported"); return true }
         catch { message = ConsoleMessage("backup.exportFailed"); return false }

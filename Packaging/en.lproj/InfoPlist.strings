@@ -1,3 +1,5 @@
+"CFBundleDisplayName" = "Remote Voice Utility";
+"CFBundleName" = "Remote Voice Utility";
 "NSBluetoothAlwaysUsageDescription" = "Connect to your Bluetooth voice remote and receive its audio.";
 "NSBluetoothPeripheralUsageDescription" = "Connect to your Bluetooth voice remote and receive its audio.";
 "NSInputMonitoringUsageDescription" = "Receive Chromecast remote buttons and your chosen keyboard voice shortcut.";

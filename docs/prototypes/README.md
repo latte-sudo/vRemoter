@@ -1,6 +1,10 @@
-# vRemoter 首次引导与设置交互原型
+# 遥控器语音工具首次引导与设置交互原型
 
-`vremoter-onboarding-settings.html` 为当前第 8 版独立 HTML 原型，以用户批准的第 7 版布局与交互为基础，加入简体中文、繁体中文、英文和更简明的文案。仓库文件与交付的 v8 HTML 逐字节一致。直接用桌面浏览器打开即可；图片、样式和脚本均内嵌，无需构建、安装依赖或联网。
+当前使用 `remote-voice-utility-onboarding-settings.html`：它是第 8 版独立 HTML 原型的中性副本，保留用户批准的第 7 版布局与交互，以及后续简体中文、繁体中文、英文和简化文案；只将当前可见产品品牌替换成描述性占位名 Remote Voice Utility / 遥控器语音工具 / 遙控器語音工具。占位名不是最终产品名或作者署名。
+
+`vremoter-onboarding-settings.html` 是已交付 v8 的历史归档，本轮保持逐字节不变，因此仍可含原品牌文案。不要通过改写该历史文件来掩盖设计来源。两个文件均可直接用桌面浏览器离线打开；图片、样式和脚本内嵌，无需构建、安装依赖或联网。它们都不是对外产品网站。
+
+测试脚本保留 `test-vremoter-onboarding-settings.cjs` 文件名，默认验证当前中性副本；命令行路径或 `VREMOTER_PROTOTYPE_HTML` 可显式指定其他参考。旧 localStorage/演示备份标识继续保留用于兼容，不是新产品品牌承诺。
 
 ## 当前范围
 
@@ -31,6 +35,6 @@ node --check docs/prototypes/test-vremoter-onboarding-settings.cjs
 node docs/prototypes/test-vremoter-onboarding-settings.cjs
 ```
 
-测试脚本会在 Node VM 中编译并运行 HTML 内的 JavaScript，覆盖 81 项交互、状态与新版布局约束回归。它使用模拟 DOM，不能替代真实浏览器的视觉、布局或无障碍验证；这里不宣称浏览器或原生视觉验收已完成。
+测试脚本会在 Node VM 中编译并运行当前 HTML 内的 JavaScript，覆盖交互、状态、三语与新版布局约束回归；历史基线为 81 项，当前中性副本另含 3 项品牌回归，共 84 项。它使用模拟 DOM，不能替代真实浏览器的视觉、布局或无障碍验证；这里不宣称浏览器或原生视觉验收已完成。
 
-第 8 版内含 665 个三语文案 key。测试还检查 183 个英文界面场景中是否残留未翻译中文。原型的 JSON 备份与原生应用的 property-list 档案分开；恢复默认及缺少语言字段的旧备份会保留当前语言，含明确语言的新备份可在确认后恢复语言。
+历史第 8 版内含 665 个三语文案 key；中性副本沿用三语结构，新增 1 个产品占位名 key，共 666 个。测试还检查 183 个英文界面场景中是否残留未翻译中文。原型的 JSON 备份与原生应用的 property-list 档案分开；恢复默认及缺少语言字段的旧备份会保留当前语言，含明确语言的新备份可在确认后恢复语言。

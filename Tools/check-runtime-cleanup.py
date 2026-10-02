@@ -66,8 +66,8 @@ for declaration in [
 ]:
     check(not re.search(r"\b" + declaration + r"\b", debug), f"legacy UI remains: {declaration}")
 for declaration in [
-    "ConsoleViewModel", "DebugWindowController", "PermissionKind", "GuideAsset",
-    "PermissionGuideView", "GuideScreenshot", "ConsoleModalContent", "ConsoleTheme",
+    "ConsoleViewModel", "DebugWindowController", "PermissionKind",
+    "PermissionGuideView", "PermissionIllustration", "ConsoleModalContent", "ConsoleTheme",
     "KeyboardShortcutCaptureView", "KeyboardEventCaptureView", "KeyboardCaptureNSView",
     "ConsoleButtonStyle", "ConsoleButtonTone", "LogoAsset",
 ]:

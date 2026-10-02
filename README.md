@@ -1,9 +1,11 @@
-# vRemoter for Chromecast Voice Remote
+# Remote Voice Utility for Chromecast Voice Remote
 
 A macOS 12+ utility that sends Chromecast remote audio to a selected virtual
 microphone route, controls a speech tool's recording shortcut, and maps ordinary
 remote buttons to Mac actions. The app does not recognize speech; the selected
 speech tool does. Mac microphone capture is disabled, including on upgrade.
+
+The current descriptive display names are **Remote Voice Utility / 遥控器语音工具 / 遙控器語音工具**. They are placeholders, not a final product name or a new author identity. The inherited `vRemote` executable, app directory and technical identities remain for compatibility; see the [identity and contribution inventory](docs/PROJECT_OWNERSHIP_AND_LICENSES.md).
 
 This is a **development branch**, not a signed/notarized release. It supports the
 known Chromecast Voice Remote profile (VID `0x18D1`, PID `0x9450`). X6 transport,
@@ -65,7 +67,7 @@ builds/includes a modified driver and is not cleared for distribution.
 2. Pair the remote in macOS Bluetooth settings and check that both HID buttons
    and BLE voice are connected. They are separate channels
 3. Request the needed permissions, approve them in macOS, then recheck and
-   reconnect. vRemoter does not request Mac microphone capture for this runtime;
+   reconnect. The app does not request Mac microphone capture for this runtime;
    the speech tool controls its own microphone permission
 4. Choose the remote's hold/toggle mode and the speech tool's shortcut mode
    independently. Select the virtual route that feeds the tool
@@ -127,8 +129,11 @@ VREMOTE_VOICE_TEST_REPETITIONS=20 bash Tools/test-chromecast-models.sh
 python3 Tools/check-mapping-layout.py
 python3 Tools/check-native-interface.py
 python3 Tools/check-runtime-cleanup.py
+python3 Tools/check-branding.py
+python3 Tools/generate-placeholder-icon.py --check
 python3 Tools/test-package-contents.py
 node docs/prototypes/test-vremoter-onboarding-settings.cjs
+node docs/prototypes/test-vremoter-onboarding-settings.cjs docs/prototypes/vremoter-onboarding-settings.html
 git diff --check
 ```
 
@@ -150,14 +155,15 @@ physical remote behavior or recognition quality. Use the
 - [Product scope](PRODUCT.md) and [native architecture/settings](docs/NATIVE_INTERFACE_IMPLEMENTATION.md)
 - [Mapping layout and actions](docs/CHROMECAST_SCROLL_ACTIONS.md)
 - [Audio lifecycle](docs/chromecast-audio-resource-lifecycle.md) and [permissions](docs/PERMISSION_REQUESTS.md)
-- [Approved HTML v7 reference and test](docs/prototypes/README.md), kept offline;
+- [Current neutral HTML reference, historical v8 archive and test](docs/prototypes/README.md), kept offline;
   it simulates interactions and does not run the native app or real audio
 - [Cleanup inventory](docs/CLEANUP_REVIEW.md) and [ownership/source inventory](docs/PROJECT_OWNERSHIP_AND_LICENSES.md)
 - `Sources/vRemote/`: SwiftUI, HID/BLE/ATVV, voice/audio, mapping and system integration
 - `SelfTests/`, `Tools/`: regression suites and developer checks
-- `Resources/`: active remote artwork and permission guides
-- `Design/vRemoter-Logo-v1/`: retained branding sources and current app icon;
-  the superseded X6/mixer frozen UI design has been removed
+- `Resources/`: active remote artwork, generic placeholder icon and permission-help notes;
+  all three interface languages use native schematic permission illustrations
+- `Tools/generate-placeholder-icon.py`: reproducible letter-free geometric remote icon;
+  inherited logo sources and permission screenshots have been removed
 - [Historical changelog](CHANGELOG.md): inherited history, not a new release claim
 
 ## Release blockers
@@ -171,6 +177,8 @@ online service is configured.
 The modified BlackHole driver has separate GPLv3 obligations. Its binary-patching
 script does not establish a complete reproducible source release. Driver
 source/build provenance, the distribution license route, asset rights, signing,
-notarization and installation/hardware acceptance remain open. App name, icons,
-bundle/signing/login-item/driver identities have not been changed by cleanup.
+notarization and installation/hardware acceptance remain open. Visible branding
+now uses descriptive placeholders and a generic icon. Bundle/signing/login-item,
+package/executable/app-folder, preferences/storage/archive and driver identities
+remain unchanged until a coordinated migration is designed.
 See the [ownership and release decisions](docs/PROJECT_OWNERSHIP_AND_LICENSES.md).
