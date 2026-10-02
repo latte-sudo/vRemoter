@@ -112,5 +112,7 @@ for action in ['selectSystemLanguage', 'selectSimplifiedChinese', 'selectTraditi
     body = re.search(r'private func ' + action + r'\(\) \{(.*?)\n    \}', main, re.S).group(1)
     check('AppLanguage.selected =' in body and not re.search(r'restart|stop|reconnect', body, re.I), action + ' must not interrupt a voice session')
 check(main.index('if CommandLine.arguments.contains("--localization-self-test")') < main.index('let app = NSApplication.shared'), 'bundle probe must run before app/device startup')
+probe = main[main.index('if CommandLine.arguments.contains("--localization-self-test")'):main.index('let app = NSApplication.shared')]
+check('Swift.print(' in probe and not re.search(r'(?<![.\w])print\(', probe), 'bundle probe must bypass application logging')
 print(f'PASS: {checks} localization contracts; {len(keys)} keys × 3 locales; {len(references)} referenced keys')
 print('NOT RUN here: Swift compilation, AppKit rendering, live menu behavior, or hardware acceptance')

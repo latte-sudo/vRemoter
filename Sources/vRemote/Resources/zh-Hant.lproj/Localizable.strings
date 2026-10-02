@@ -343,6 +343,7 @@
 "shortcut.capture.save" = "儲存快速鍵";
 "shortcut.capture.title" = "設定快速鍵";
 "shortcut.capture.waiting" = "現在按下按鍵或組合鍵";
+"storage.byte" = "{0} 位元組";
 "storage.bytes" = "{0} 位元組";
 "storage.gigabytes" = "{0} GB";
 "storage.kilobytes" = "{0} KB";

@@ -343,6 +343,7 @@
 "shortcut.capture.save" = "保存快捷键";
 "shortcut.capture.title" = "设置快捷键";
 "shortcut.capture.waiting" = "现在按下按键或组合键";
+"storage.byte" = "{0} 字节";
 "storage.bytes" = "{0} 字节";
 "storage.gigabytes" = "{0} GB";
 "storage.kilobytes" = "{0} KB";

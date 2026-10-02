@@ -343,6 +343,7 @@
 "shortcut.capture.save" = "Save shortcut";
 "shortcut.capture.title" = "Set a shortcut";
 "shortcut.capture.waiting" = "Press a key or key combination";
+"storage.byte" = "{0} byte";
 "storage.bytes" = "{0} bytes";
 "storage.gigabytes" = "{0} GB";
 "storage.kilobytes" = "{0} KB";

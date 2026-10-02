@@ -120,6 +120,6 @@ enum AppStorage {
         while value >= 1000 && index < units.count - 1 { value /= 1000; index += 1 }
         formatter.maximumFractionDigits = index == 0 ? 0 : 1
         let amount = formatter.string(from: NSNumber(value: value)) ?? String(value)
-        return L10n.tr(units[index], amount)
+        return L10n.tr(index == 0 && bytes == 1 ? "storage.byte" : units[index], amount)
     }
 }

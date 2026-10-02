@@ -1,10 +1,13 @@
-# Native interface and approved prototype v7
+# Native interface and prototype v8
 
 ## Design source and scope
 
-`docs/prototypes/vremoter-onboarding-settings.html` is the approved v7 visual
-and interaction reference. It remains a developer reference, including its Design
-Tokens tab; the customer app has no token browser and runs no HTML simulation.
+`docs/prototypes/vremoter-onboarding-settings.html` is the current v8 visual
+and interaction reference, extending the user-approved v7 layout with Simplified
+Chinese, Traditional Chinese, English and clearer copy. The archived HTML is
+byte-identical to the delivered v8 file. It remains a developer reference,
+including its Design Tokens tab; the customer app has no token browser and runs
+no HTML simulation.
 The SwiftUI implementation targets macOS 12. Native compilation and AppKit
 tests require macOS; platform-independent source/HTML checks do not prove native
 rendering, physical remote behavior or recognition.
@@ -85,9 +88,9 @@ resizable window starts at 1160×820, with a 1080×720 minimum; vertical scrolli
 keeps mapping and detailed settings reachable. The real mapping canvas retains
 its own horizontal fallback at narrow widths.
 
-The latest v7 reference left-aligns sidebar content and reduces the Settings
-page's top spacing from 65 px to 52 px; it also includes a simulated menu-icon
-voice receipt demonstration. The native sidebar follows leading alignment, and
+The v8 reference retains the v7 sidebar leading alignment, Settings top-spacing
+reduction from 65 px to 52 px, and simulated menu-icon voice receipt
+demonstration. The native sidebar follows leading alignment, and
 the native menu-bar indicator follows real PCM. CSS pixel spacing is a reference,
 not evidence of an exact native screenshot match. Native layout and menu-bar
 rendering still require macOS visual acceptance.

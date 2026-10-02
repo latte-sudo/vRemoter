@@ -643,9 +643,9 @@ if CommandLine.arguments.contains("--localization-self-test") {
     for failure in failures { FileHandle.standardError.write(Data((failure + "\n").utf8)) }
     if !failures.isEmpty { exit(1) }
     for language in L10n.supportedLanguages {
-        print("\(language.rawValue): \(L10n.text("language.title", language: language))")
+        Swift.print("\(language.rawValue): \(L10n.text("language.title", language: language))")
     }
-    print("PASS: running executable loaded all three bundled language tables")
+    Swift.print("PASS: running executable loaded all three bundled language tables")
     exit(0)
 }
 

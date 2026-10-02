@@ -44,6 +44,8 @@ struct LocalizationTests {
             precondition(Set(translated.keys) == Set(english.keys))
             for key in english.keys { precondition(!L10n.text(key, language: language).isEmpty) }
         }
+        precondition(L10n.text("storage.byte", language: .english, arguments: ["1"]) == "1 byte")
+        precondition(L10n.text("storage.bytes", language: .english, arguments: ["2"]) == "2 bytes")
         precondition(L10n.text("language.title", language: .english) == "Language")
         precondition(L10n.text("language.title", language: .simplifiedChinese) == "语言")
         precondition(L10n.text("language.title", language: .traditionalChinese) == "語言")

@@ -1,9 +1,10 @@
 # vRemoter 首次引导与设置交互原型
 
-`vremoter-onboarding-settings.html` 为最新批准的第 7 版独立 HTML 原型，按用户提供文件逐字节保存。直接用桌面浏览器打开即可；图片、样式和脚本均内嵌，无需构建、安装依赖或联网。
+`vremoter-onboarding-settings.html` 为当前第 8 版独立 HTML 原型，以用户批准的第 7 版布局与交互为基础，加入简体中文、繁体中文、英文和更简明的文案。仓库文件与交付的 v8 HTML 逐字节一致。直接用桌面浏览器打开即可；图片、样式和脚本均内嵌，无需构建、安装依赖或联网。
 
 ## 当前范围
 
+- 简体中文、繁体中文、英文及跟随系统选项；语言即时切换并保存
 - 首次引导、应用设置、设计令牌三个入口；七步引导含六段进度连接线，第六步按键配置仍为非交互展示位
 - 简化的语音试用：真实遥控器图片标出黑色语音键，提示随按住／切换模式变化，结束后需明确确认示例文字
 - 遥控器概览合并图片、本地显示别名、连接状态和操作，其下保留按键配置展示位
@@ -32,4 +33,4 @@ node docs/prototypes/test-vremoter-onboarding-settings.cjs
 
 测试脚本会在 Node VM 中编译并运行 HTML 内的 JavaScript，覆盖 81 项交互、状态与新版布局约束回归。它使用模拟 DOM，不能替代真实浏览器的视觉、布局或无障碍验证；这里不宣称浏览器或原生视觉验收已完成。
 
-The v8 prototype has 665 three-language keys (Simplified Chinese, Traditional Chinese and English), with a persistent System option and immediate switching. Its JSON backup format remains separate from native property-list archives. Reset and legacy backups preserve the selected language.
+第 8 版内含 665 个三语文案 key。测试还检查 183 个英文界面场景中是否残留未翻译中文。原型的 JSON 备份与原生应用的 property-list 档案分开；恢复默认及缺少语言字段的旧备份会保留当前语言，含明确语言的新备份可在确认后恢复语言。

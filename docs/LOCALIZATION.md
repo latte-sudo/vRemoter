@@ -15,7 +15,7 @@ configuration, reset a trial, clear feedback, or stop/restart a voice session.
 ## Resources and packaging
 
 `Sources/vRemote/Resources/{en,zh-Hans,zh-Hant}.lproj/Localizable.strings` contain
-477 reviewed semantic keys in each language. `L10n.tr` resolves the selected
+478 reviewed semantic keys in each language. `L10n.tr` resolves the selected
 language; `{0}`, `{1}` and subsequent numbered placeholders allow reordering.
 Substitution happens once against the original template, so user text containing
 braces is not interpreted. Labels with numeric counts avoid English singular/
