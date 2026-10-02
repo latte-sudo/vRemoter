@@ -33,8 +33,9 @@ pass is not physical remote/IME or visual acceptance.
 
 Onboarding: choose tool → connect remote → permissions → speaking modes → real
 speech trial → key mapping → ready. Connect and permission gates use observed
-states. The connection page can request Bluetooth if initial permission blocks
-connection. Back navigation is available for visited steps. Later means resume,
+states. The connection page can request Bluetooth or visit permission checks early if
+initial permission blocks HID connection; the permission step requires both
+channels to reconnect before advancing. Back navigation is available for visited steps. Later means resume,
 not successful completion. Cancelling and restoring the pre-flow snapshot is a
 separate confirmed action in Settings.
 
@@ -95,3 +96,15 @@ Release identity, provenance and cleanup decisions are tracked in
 `PROJECT_OWNERSHIP_AND_LICENSES.md` and `CLEANUP_REVIEW.md`; those are separate from
 native UI acceptance. Do not rename bundle/signing identities or publish a driver
 without reviewing them.
+
+## Cleanup and app-only packaging
+
+The follow-on cleanup removes the unused mixer/commerce/donation views and
+original update/telemetry services, dependency, assets and promotional site.
+Shared permission help and keyboard capture remain; X6-named shared protocols,
+keyboard observation and preference-isolation tests are deliberately retained.
+Required copyright and license texts are copied into the app's
+`Contents/Resources/Licenses/`; no driver is packaged by `package-app.sh`.
+CI builds the ad-hoc-signed development app and checks its actual notice bytes,
+active assets and absence of old promotion/telemetry resources. This is not
+signing/notarization or GPL-driver distribution clearance.

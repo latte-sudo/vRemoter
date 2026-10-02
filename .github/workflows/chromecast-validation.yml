@@ -20,5 +20,13 @@ jobs:
         run: bash Tools/test-chromecast-models.sh
       - name: Native interface source contracts
         run: python3 Tools/check-native-interface.py
+      - name: Runtime cleanup contracts
+        run: python3 Tools/check-runtime-cleanup.py
+      - name: Isolated packaging regression
+        run: python3 Tools/test-package-contents.py
+      - name: Build development app bundle
+        run: zsh package-app.sh
+      - name: Verify bundled notices and resources
+        run: python3 Tools/check-app-bundle.py dist/build/vRemote.app
       - name: Whitespace check
         run: git diff --check

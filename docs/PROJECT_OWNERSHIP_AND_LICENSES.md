@@ -2,6 +2,8 @@
 
 审计日期：2026-10-02。审计起点：`ac3890f`；原始上游基线：`15076345d955fcc81dae659150d1702b50b8010a`。
 
+本轮原生迁移已移除旧推广、赞助、商城、自动更新、TelemetryDeck 及旧站点文件；应用仍保留 MIT 来源代码与现有虚拟驱动路线。
+
 这是当前 fork 的工程来源与发布检查表，不是权属证明或法律意见。清理旧界面、推广和商店资源不会消除仍然保留代码的许可条件，也不应把继承的实现改称全部原创。实际删除与保留范围见 [CLEANUP_REVIEW.md](CLEANUP_REVIEW.md)。
 
 ## 1. 可以独立维护的部分，以及必须保留的来源说明
@@ -19,7 +21,7 @@
 | [fanxeon/mi-ao LICENSE](https://github.com/fanxeon/mi-ao/blob/main/LICENSE)；本地三个文件首行及 `THIRD_PARTY_NOTICES.md` | `Sources/vRemote/ATVV/ADPCMDecoder.swift`、`ATVVProtocol.swift`、`BridgeError.swift`；音频协议解析仍在用 | MIT；`Copyright (c) 2026 FanXeon@Poemcoder with Codex` | 保留三个文件的作者头；分发包含完整 MIT 授权文字，不能只留下 GitHub 链接 |
 | [b0o/ATVVoice LICENSE](https://github.com/b0o/ATVVoice/blob/main/LICENSE)；本地 `THIRD_PARTY_NOTICES.md` | 已有说明称 ATVV 协议与 IMA/DVI ADPCM 实现受其启发；本次未完成逐行来源比对 | MIT；`Copyright (c) 2026 Maddison Cohodas` | 保守保留现有署名和 MIT 文字。现有说明不证明直接复制，亦不足以自行断言可以删除署名 |
 | [BlackHole v0.4.1 LICENSE](https://github.com/ExistentialAudio/BlackHole/blob/v0.4.1/LICENSE)、[源文件头](https://github.com/ExistentialAudio/BlackHole/blob/v0.4.1/BlackHole/BlackHole.c) | `Driver/build-driver.sh` 复制/修改本机 `BlackHole2ch.driver`；`build-pkg.sh` 打包生成的 `vRemoteDriver.driver`；应用通过 CoreAudio 使用虚拟设备 | GNU GPL v3；源文件头为 `Copyright (C) 2019 Existential Audio Inc.` | 驱动不受本仓库 MIT 替代。保留驱动版权、GPL 全文、修改说明与对应源码；详见第 4 节。实际输入二进制的版本与版权仍需逐包核验 |
-| [TelemetryDeck 固定 revision LICENSE](https://github.com/TelemetryDeck/SwiftSDK/blob/bc7467592166e8f93fbde0140d2757b0635e1712/LICENSE)、[Package.swift](https://github.com/TelemetryDeck/SwiftSDK/blob/bc7467592166e8f93fbde0140d2757b0635e1712/Package.swift) | 清理前 `Package.swift`/`Package.resolved` 唯一 SwiftPM 外部依赖，版本 `2.9.10`；`AnalyticsSupport.swift` | **修改版 MIT，移除了署名保留条款**；`Copyright (c) 2020 Daniel Jilg` | 不应误报成标准 MIT 的强制署名要求。该固定版本明确不要求在副本中附许可；移除依赖与初始化后不再进入新构建。其 Package.swift 没有外部依赖 |
+| [TelemetryDeck 固定 revision LICENSE](https://github.com/TelemetryDeck/SwiftSDK/blob/bc7467592166e8f93fbde0140d2757b0635e1712/LICENSE)、[Package.swift](https://github.com/TelemetryDeck/SwiftSDK/blob/bc7467592166e8f93fbde0140d2757b0635e1712/Package.swift) | 清理前 `Package.swift`/`Package.resolved` 唯一 SwiftPM 外部依赖，版本 `2.9.10`；`AnalyticsSupport.swift` | **修改版 MIT，移除了署名保留条款**；`Copyright (c) 2020 Daniel Jilg` | 不应误报成标准 MIT 的强制署名要求。该固定版本明确不要求在副本中附许可；本轮已删除依赖、锁文件及初始化，当前应用 Package.swift 无外部依赖。该 SDK 自身的 Package.swift 也没有外部依赖 |
 | [Google Voice over BLE v1.0（现有记录中的镜像）](https://wangefan.github.io/linux_kernel_driver/resources/Google_Voice_over_BLE_spec_v1.0.pdf) | 协议参考；没有 PDF 文件打包进仓库 | 没有在本次查得独立再分发授权；参考资料不是代码许可 | 保留资料来源，避免把镜像或协议资料标成 MIT；若要复制文档、图表或大量文字，另核实授权 |
 | Apple SDK / 系统资源 | `AppKit`、`SwiftUI`、`CoreBluetooth`、`CoreAudio`、`AVFoundation`、`CoreGraphics`、`ApplicationServices`、`IOKit` 等系统调用与系统符号/字体 | 平台 SDK/系统资源，不是本仓库自行授权的第三方源码 | 仓库未跟踪 SDK、字体文件或 framework 二进制；发布时按适用 Apple 工具和资源条款检查，不把系统符号/字体称为用户原创 |
 
@@ -73,7 +75,7 @@ BlackHole 的 [v0.4.1 开发者说明](https://github.com/ExistentialAudio/Black
 4. 对每个实际随包分发的 BlackHole 衍生驱动，保留其 GPL/版权通知与修改和源码交付信息。
 5. 将通知作为真实文件放入应用包，例如 `Contents/Resources/Licenses/`；源仓库有 LICENSE 并不证明 DMG/PKG 收件人已取得通知。构建后检查实际包内容。
 
-审计起点 `package-app.sh` 未复制根 `LICENSE` 或 `THIRD_PARTY_NOTICES.md`；这是必须补上的打包缺口。下方集中 MIT 通知可随应用附带（仅适用于所列 MIT 部分，**不替代 BlackHole GPL**）。Maddison 的行在逐行来源复核前保守保留。
+审计起点 `package-app.sh` 未复制根 `LICENSE` 或 `THIRD_PARTY_NOTICES.md`；本轮已新增三份文件（含本文）到 `Contents/Resources/Licenses/` 的复制步骤，并在 `THIRD_PARTY_NOTICES.md` 中补足完整 MIT 文字。静态脚本检查不等于已验证 macOS 成品包。下方集中 MIT 通知亦可随应用附带（仅适用于所列 MIT 部分，**不替代 BlackHole GPL**）。Maddison 的行在逐行来源复核前保守保留。
 
 ```text
 MIT License
@@ -111,3 +113,36 @@ SOFTWARE.
 - 是否以后需要统计、购买或赞助功能；本轮清理不创建新的收款、商店或分析账户
 
 重命名包标识不是简单搜索替换：`AppStorage`、登录启动、签名 designated requirement、驱动设备 UID、设置导入与旧版本升级都可能受影响。此文档只列出决策，不擅自选定身份或变更用户设备。
+
+### 具体要确认的字段
+
+“发布前要决定”不表示所有字段必须改名。开发测试可以保留现值；若选择独立品牌、并存安装或新的签名身份，再一起修改相互依赖的字段并做迁移测试。
+
+| 项目 | 仓库文件 / key | 当前值 | 什么时候要处理 |
+| --- | --- | --- | --- |
+| 产品显示名称 | `Packaging/Info.plist`：`CFBundleDisplayName`、`CFBundleName`；`ChromecastConsoleView.swift`、`DebugWindowController.swift`、`main.swift` 中显示文案 | `vRemoter` | 独立品牌发布前决定保留或换名；不是删除来源署名 |
+| 应用图标 | `package-app.sh` 图标输入；`Packaging/Info.plist`：`CFBundleIconFile`；`DebugWindowController.swift`：`LogoAsset` | 输入 `Design/vRemoter-Logo-v1/vRemoter-app-icon-v9.png`；输出 `vRemoterLogo.png` / `vRemoter.icns` | 发布前确认使用权或提供自己的图标；与显示名称一起决定 |
+| Swift 包 / 可执行 target | `Package.swift`：package `name`、`.executableTarget(name:)` | 两者均为 `vRemote`；没有单独显式 `products` 数组 | 可选内部命名；若改，须同步二进制路径、构建测试和安装脚本 |
+| 可执行文件 / app 目录 | `Packaging/Info.plist`：`CFBundleExecutable`；`package-app.sh`、`build-pkg.sh`、`build-dmg.sh`、`install-app.sh` | 可执行文件 `vRemote`；`vRemote.app`；本地安装为 `~/Applications/vRemote.app`，PKG payload 为 `/Applications/vRemote.app` | 可选；独立并存安装时应明确目录，不能只改显示名后意外覆盖旧 app |
+| 应用 bundle ID | `Packaging/Info.plist`：`CFBundleIdentifier` | `local.simaqingfeng.vRemote` | 发布前决定是否沿用身份或迁移到用户控制的命名空间；独立并存通常需要独立身份。不是声称法律上所有 fork 都必须改 ID |
+| 登录启动项 | `Sources/vRemote/LaunchAtLogin.swift`：`label` | `local.simaqingfeng.vRemote.login`；对应 `~/Library/LaunchAgents/<label>.plist` | 改应用身份/并存策略时一并决定，迁移时处理旧项，避免重复启动 |
+| 应用签名 | `package-app.sh`：`codesign --sign`、`--requirements` | 临时签名 `-`；designated requirement 为 `identifier "local.simaqingfeng.vRemote"` | 开发可保持；选新 bundle ID 时同步 requirement。正式发布前确定用户的 Developer ID 与公证/分发方案，本脚本当前不完成公证 |
+| 安装包身份 / 签名 | `build-pkg.sh`：`pkgbuild --identifier`、`INSTALLER_SIGN_IDENTITY` | `local.simaqingfeng.vRemoter.pkg`；签名变量未设置时输出未签名 PKG | 仅发布 PKG 时需要决定；改 ID 要考虑已有安装 receipts/升级。签名身份由用户指定，不复制原作者身份 |
+| 版本号与构建号 | `VERSION`；`Packaging/Info.plist`：`CFBundleShortVersionString`、`CFBundleVersion` | `1.1.1`；`1.1.1`；`111` | 发布前决定本 fork 的版本策略，保持两处版本一致，并为后续发布递增 build；本轮未伪造新版本 |
+| 分发文件名 / DMG 卷名 | `build-pkg.sh`、`build-dmg.sh` | `vRemoter-<version>.pkg` / `.dmg`；卷名 `vRemoter <version>` | 如果改公开产品名，一起更新；本轮没有生成正式发布包 |
+| 本地日志 / 设置目录 | `Sources/vRemote/AppStorage.swift` | `~/Library/Logs/vRemote`、`vRemote.log`、`~/Library/Application Support/vRemote`（含 `Recordings`） | 可选兼容性选择；换名时设计迁移，不因清理代码而删除现有数据 |
+| 更新 / 商城 / 统计 | 原 plist 的 `VRReleasesURL`、`VRCommerceConfigURL`、`VRTelemetryDeckAppID`、`VRTelemetryDeckNamespace` | **本轮均已删除**，没有新服务地址或账户 | 以后确实需要时再由用户指定；独立应用无需为了改名重建这些功能 |
+
+### 驱动身份是另一项延后决定
+
+下列字段全部来自 `Driver/build-driver.sh` 的现有补丁规则，本轮没有修改。仅给应用换名，不要求同时改已安装且工作正常的音频设备名称。
+
+| 字段 | 当前脚本输出 / 关联文件 | 注意事项 |
+| --- | --- | --- |
+| 驱动包 / Bundle ID / 名称 | `vRemoteDriver.driver`；`audio.local.vRemoteDriver2chXX`；`vRemote Driver` | `Driver/install-driver.sh`、`uninstall-driver.sh`、`Packaging/pkg-scripts/postinstall` 和 `build-pkg.sh` 都引用当前包路径 |
+| 工厂 UUID | `B7C4C615-9E72-4C83-A329-71C4E50E4A91`，入口名仍为 `BlackHole_Create` | 若另做独立驱动身份需一致更新 Info.plist 及源代码；不随意改 BlackHole 执行入口 |
+| 设备 UID / 次设备 UID | `vRemoteDr%ich_UID`、`vRemoteDr%ich_2_UID`（`%i` 为声道数格式位） | 用户保存的音频路由可能绑定 UID；改动要迁移和实机验证 |
+| Model UID / Box 名称 | `vRemoteDr%ich_ModelUID`、`vRemoteDr Box` | 保留与驱动实现一致；当前二进制替换依赖同字节长度 |
+| 音频设备显示名 | `vRemoteDr %ich`；2 声道时 `vRemoteDr 2ch` | `AudioRouteConfiguration.swift`、`DoubaoAudioStateMonitor.swift`、帮助文案和测试也使用默认名；变更需联动 |
+
+如果决定更改上述驱动身份，优先建立可重建的源码方案，不能把当前等长二进制补丁脚本当作任意重命名工具。这个决定仍受第 4 节的 GPL 与分发条件约束。

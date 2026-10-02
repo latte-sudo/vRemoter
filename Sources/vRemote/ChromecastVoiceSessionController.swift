@@ -118,6 +118,14 @@ final class ChromecastVoiceSessionController {
         closeSession(reason: "manual close", sendEndShortcut: true, immediateKeyRelease: true)
     }
 
+    /// Admission can fail before a remote START reaches the state machine.
+    /// Publish that failure through the same typed path, while retaining the
+    /// forced-stop guarantee for an existing session and its captured key.
+    func outputRouteUnavailable() {
+        publish("虚拟音频输出不可用 · 请检查输出设备", "Virtual audio output unavailable · check the output device", event: .failed(.outputStartupFailed))
+        forceClose()
+    }
+
     /// Sleep and termination use the same synchronous key-up guarantee.
     /// Call start() again after wake before accepting new remote gestures.
     func stop(reason: String = "stopped") {

@@ -13,10 +13,6 @@ mkdir -p "$CONTENTS/MacOS"
 mkdir -p "$CONTENTS/Resources"
 cp "$SCRIPT_DIR/.build/release/vRemote" "$CONTENTS/MacOS/vRemote"
 cp "$SCRIPT_DIR/Packaging/Info.plist" "$CONTENTS/Info.plist"
-for resource_bundle in "$SCRIPT_DIR/.build/release/"*.bundle; do
-  [[ -d "$resource_bundle" ]] || continue
-  ditto "$resource_bundle" "$CONTENTS/Resources/${resource_bundle:t}"
-done
 for localization in "$SCRIPT_DIR/Packaging"/*.lproj; do
   [[ -d "$localization" ]] || continue
   ditto "$localization" "$CONTENTS/Resources/${localization:t}"
@@ -44,22 +40,21 @@ if [[ -d "$SCRIPT_DIR/Resources/PermissionGuides" ]]; then
   ditto "$SCRIPT_DIR/Resources/PermissionGuides" \
     "$CONTENTS/Resources/PermissionGuides"
 fi
-if [[ -d "$SCRIPT_DIR/Resources/buymeacoffee" ]]; then
-  ditto "$SCRIPT_DIR/Resources/buymeacoffee" \
-    "$CONTENTS/Resources/BuyMeACoffee"
-fi
-if [[ -d "$SCRIPT_DIR/Resources/Commerce" ]]; then
-  ditto "$SCRIPT_DIR/Resources/Commerce" \
-    "$CONTENTS/Resources/Commerce"
-fi
-if [[ -d "$SCRIPT_DIR/Resources/RemoteImages" ]]; then
-  ditto "$SCRIPT_DIR/Resources/RemoteImages" \
-    "$CONTENTS/Resources/RemoteImages"
-fi
+# Only the image used by the native Chromecast mapping canvas is bundled.
+mkdir -p "$CONTENTS/Resources/RemoteImages"
+cp "$SCRIPT_DIR/Resources/RemoteImages/chromecast-front-and-volume-enhanced.png" \
+  "$CONTENTS/Resources/RemoteImages/chromecast-front-and-volume-enhanced.png"
+
+# Binary distributions must carry the inherited copyright and license notices.
+mkdir -p "$CONTENTS/Resources/Licenses"
+cp "$SCRIPT_DIR/LICENSE" "$CONTENTS/Resources/Licenses/LICENSE"
+cp "$SCRIPT_DIR/THIRD_PARTY_NOTICES.md" "$CONTENTS/Resources/Licenses/THIRD_PARTY_NOTICES.md"
+cp "$SCRIPT_DIR/docs/PROJECT_OWNERSHIP_AND_LICENSES.md" \
+  "$CONTENTS/Resources/Licenses/PROJECT_OWNERSHIP_AND_LICENSES.md"
+
 chmod 755 "$CONTENTS/MacOS/vRemote"
-# SwiftPM resource bundles may contain read-only privacy manifests. The app
-# bundle is a disposable build artifact, so make it owner-writable before
-# clearing inherited metadata and applying the final ad-hoc signature.
+# The app bundle is a disposable build artifact. Make it owner-writable
+# before clearing inherited metadata and applying the final ad-hoc signature.
 chmod -R u+w "$APP"
 xattr -cr "$APP"
 

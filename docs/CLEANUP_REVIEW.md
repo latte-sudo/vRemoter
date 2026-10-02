@@ -2,7 +2,7 @@
 
 日期：2026-10-02。基准：`ac3890f`（已归档批准的 HTML 原型）。
 
-本审计把“未在运行时使用”“可以随本轮迁移删除”“仍被构建/帮助/测试使用”分开记录。条目是代码和资源审查结论，不代表这些删除已经全部执行；实际执行记录放在末尾。许可与权属清单见 [PROJECT_OWNERSHIP_AND_LICENSES.md](PROJECT_OWNERSHIP_AND_LICENSES.md)。
+本审计把“未在运行时使用”“可以随本轮迁移删除”“仍被构建/帮助/测试使用”分开记录。第 1–5 节记录迁移起点的审查与安全条件；第 6 节列出本轮实际已执行、仍保留和未验证的范围。许可与权属清单见 [PROJECT_OWNERSHIP_AND_LICENSES.md](PROJECT_OWNERSHIP_AND_LICENSES.md)。
 
 ## 1. 已查证、可以成组清理的旧功能
 
@@ -97,4 +97,34 @@
 
 ## 6. 执行记录
 
-审计交付时的静态结论如上。原生实现与清理由实现任务负责；合并前按实际 diff 更新这里的已删、保留和未验证项目，避免把计划当作完成。
+### 已执行（2026-10-02 工作树复核）
+
+- 删除 `AnalyticsSupport.swift`、`CommerceSupport.swift`、`DonationSupport.swift`、`UpdateSupport.swift` 及连接到它们的主程序菜单、演示入口、自动检查、modal 和模型调用
+- `DebugWindowController.swift` 删除旧 mixer/mapping 私有视图、商品插图/混音控件、购买和赞助视图，仅保留实际窗口/模型、权限帮助、快捷键录制及其共享样式
+- 删除 TelemetryDeck 的唯一 SwiftPM dependency 和 `Package.resolved`；从 `Packaging/Info.plist` 删除旧更新/商城 URL 和两项 TelemetryDeck 配置
+- 删除 `Resources/Commerce/` 七个文件、`Resources/buymeacoffee/` 三张图及 `Resources/RemoteImages/` 两张旧商品图；保留增强后的 Chromecast 图片
+- 删除 `SelfTests/Fixtures/` 的商城与更新三个孤立 fixture
+- 删除旧 `docs/index.html` / `app.js` / `styles.css`、`docs/config/commerce.json`、全部旧 `docs/assets/`，以及三个 `Server/` 文件和 `OPERATIONS.md`
+- 更新 README、PRODUCT 和复用台账为当前 fork 范围，移除原作者的商业下载站宣传；保留新工程文档和批准的 `docs/prototypes/`
+- `package-app.sh` 改为只复制当前增强遥控器图；移除商业/赞助复制和无差别 SwiftPM `.bundle` 扫描，避免把旧构建缓存中的 TelemetryDeck 资源重新带进 app
+- `package-app.sh` 新增 `LICENSE`、`THIRD_PARTY_NOTICES.md`、`PROJECT_OWNERSHIP_AND_LICENSES.md` 到 `Contents/Resources/Licenses/` 的复制
+- `THIRD_PARTY_NOTICES.md` 补完整 MIT 文字，保留各作者署名，并把 BlackHole 0.4.1/最终包通知的未核实断言改成可核对的基线和发布检查项
+
+### 有意保留，不作为“已经完全去掉原项目”宣称
+
+- 现用 vRemoter 图标、名称与 bundle/安装包身份；`Design/` 中的设计历史；八张权限帮助截图
+- 现用增强 Chromecast 图片，以及用户批准的 HTML 原型和测试
+- 现有 BlackHole 衍生驱动脚本与安装流程（GPL 和实际输入版本问题仍待发布前处理）
+- X6 命名的键盘触发观察器、共享类型/旧会话测试及映射兼容数据；本轮不做危险的跨功能拆除，不清空用户偏好
+- 手动 QR / HID 调试工具与历史 CHANGELOG / VERSION；是否删设计历史、QR 工具或重定版本策略仍列为用户决策
+- `LICENSE`、ATVV 原作者头、第三方来源与许可说明
+
+### 验证与限制
+
+2026-10-02 对清理工作树作过独立静态检查：四个服务文件及旧站点文件已不存在；Package.swift 无外部 dependency；plist 已去掉四个原作者服务配置 key；当前 Sources 不含 `AppAnalytics`、`CommerceConfig`、`DonationPrompt`、`UpdateWindowController` 或原更新域名；三处 ATVV 作者头、活跃键盘观察器、图标与增强照片仍在。检查通过。
+
+CI 本轮已新增原生源码约束检查、运行时清理检查、实际 app-only 开发包构建与包内通知/资源检查；配置这些阶段不等于它们已通过，应以最终提交对应的 CI 结果为准。
+
+另已独立运行 `python3 Tools/check-runtime-cleanup.py`（106 项通过）与 `python3 Tools/test-package-contents.py`（隔离的首次/重复打包 fixture 通过）：三份通知逐字节匹配，旧商业资源和遗留 SDK bundle 未被重新复制。fixture 使用替身构建/签名工具，**不产生真实可运行 macOS app，不验证真实签名或驱动**。
+
+这是静态清理与隔离脚本核对，不是 macOS 打包、签名、公证或驱动硬件验收。完整构建/测试结果由 [原生实现记录](NATIVE_INTERFACE_IMPLEMENTATION.md) 和对应提交的 CI 记录提供；没有运行/完成的检查不得写为通过。驱动对应源码与分发路线、新品牌/图标、照片与截图权利仍未解决。

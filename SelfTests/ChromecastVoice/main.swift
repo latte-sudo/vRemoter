@@ -652,6 +652,69 @@ do {
     h.controller.stop()
 }
 
+// Admission failure happens before remoteAudioStarted when the chosen output
+// route is absent. It must still reach the typed header without starting a key
+// gesture, and must retain forceClose's cleanup safety for existing sessions.
+for target in [InputToolTriggerMode.hold, .toggle] {
+    let h = Harness(remote: .hold, target: target)
+    h.controller.outputRouteUnavailable()
+    require(h.controller.presentation.phase == .error
+            && h.controller.presentation.failure == .outputStartupFailed
+            && h.presentations.last?.failure == .outputStartupFailed,
+            "idle \(target) output-route rejection emits a typed header error")
+    require(!h.controller.isActive && h.downs == 0 && h.ups == 0 && h.closes > 0
+            && !h.events.contains("route:true") && h.ended == 0,
+            "idle \(target) route rejection closes transport without creating a session or shortcut")
+    require(h.controller.presentation.sessionStartedAt == nil && h.controller.presentation.startedAt == nil,
+            "idle \(target) route rejection invents no session timestamps")
+    h.controller.forceClose()
+    h.controller.stop()
+    h.controller.start()
+    h.scheduler.advance(by: 3)
+    require(h.controller.presentation.phase == .error
+            && h.controller.presentation.failure == .outputStartupFailed && h.downs == 0,
+            "idle \(target) admission error survives cleanup and wake without a delayed start")
+    h.controller.stop()
+}
+
+for target in [InputToolTriggerMode.hold, .toggle] {
+    let h = Harness(remote: .hold, target: target)
+    h.press()
+    let starts = h.events.filter { $0 == "route:true" }.count
+    h.controller.outputRouteUnavailable()
+    require(!h.controller.isActive && !h.controller.debugSnapshot.syntheticKeyDown
+            && h.downs == h.ups && h.ended == 1,
+            "active \(target) route rejection synchronously releases the captured key and session")
+    require(h.downs == (target == .toggle ? 2 : 1)
+            && h.events.filter { $0 == "route:true" }.count == starts,
+            "active \(target) route rejection preserves the existing stop gesture without starting a replacement")
+    require(h.controller.presentation.phase == .error
+            && h.controller.presentation.failure == .outputStartupFailed
+            && h.presentationsAtEnd.last?.failure == .outputStartupFailed,
+            "active \(target) route rejection stays an error through session-ended cleanup")
+    let keyDowns = h.downs
+    h.scheduler.advance(by: 3)
+    require(h.downs == keyDowns && h.downs == h.ups && h.controller.presentation.phase == .error,
+            "active \(target) admission cleanup leaves no delayed start or error dismissal")
+    h.controller.stop()
+}
+
+do {
+    let h = Harness(remote: .hold, target: .hold)
+    h.press()
+    h.routeStopSucceeds = false
+    h.controller.outputRouteUnavailable()
+    require(h.controller.isActive && h.downs == h.ups
+            && h.controller.presentation.failure == .localAudioStillClosing,
+            "route admission failure keeps unreleased resources actionable after releasing the key")
+    h.routeStopSucceeds = true
+    h.controller.forceClose()
+    require(!h.controller.isActive && h.controller.presentation.phase == .error
+            && h.controller.presentation.failure == .outputStartupFailed && h.downs == 1,
+            "successful admission cleanup retry preserves its original output error without a new shortcut")
+    h.controller.stop()
+}
+
 runTransportVoiceTests()
 runAudioResourceLeaseTests()
 print("All Chromecast voice regression tests passed.")

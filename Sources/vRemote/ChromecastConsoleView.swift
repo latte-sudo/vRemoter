@@ -138,7 +138,7 @@ struct ChromecastConsoleView: View {
                                 HStack(spacing: 11) {
                                     ZStack {
                                         Circle().fill(index == step ? ConsoleDesignTokens.accent : ConsoleDesignTokens.surface)
-                                        if index < step { Image(systemName: "checkmark").font(.system(size: 11, weight: .semibold)) }
+                                        if stepCompleted(index) { Image(systemName: "checkmark").font(.system(size: 11, weight: .semibold)) }
                                         else { Text("\(index + 1)").font(.system(size: 11, weight: .semibold)) }
                                     }.frame(width: 23, height: 23)
                                         .foregroundColor(index == step ? Color.white : ConsoleDesignTokens.accentText)
@@ -149,9 +149,9 @@ struct ChromecastConsoleView: View {
                                     .contentShape(Rectangle())
                             }.buttonStyle(.plain).disabled(index > furthestStep)
                                 .accessibilityLabel("第 \(index + 1) 步，共 7 步，\(steps[index])")
-                                .accessibilityValue(index == step ? "当前步骤" : index < step ? "已访问" : "未完成")
+                                .accessibilityValue(index == step ? "当前步骤" : stepCompleted(index) ? "已完成" : "未完成")
                             if index < steps.count - 1 {
-                                HStack { Rectangle().fill(index < step ? ConsoleDesignTokens.accent.opacity(0.45) : ConsoleDesignTokens.line)
+                                HStack { Rectangle().fill(stepCompleted(index) ? ConsoleDesignTokens.accent.opacity(0.45) : ConsoleDesignTokens.line)
                                     .frame(width: 1, height: 11).padding(.leading, 23); Spacer() }
                                     .accessibilityHidden(true)
                             }
@@ -184,6 +184,17 @@ struct ChromecastConsoleView: View {
             .background(ConsoleDesignTokens.sidebar)
     }
 
+    private func stepCompleted(_ index: Int) -> Bool {
+        guard index < step else { return false }
+        switch index {
+        case 0, 3: return configuration.isValid
+        case 1: return connected
+        case 2: return connected && model.accessibilityGranted && model.inputMonitoringGranted && model.bluetoothGranted
+        case 4: return speechEvidence.canComplete && prerequisitesReady
+        default: return true
+        }
+    }
+
     private var header: some View {
         HStack(spacing: 16) {
             Text("vRemoter").font(.system(size: 12, weight: .semibold))
@@ -207,6 +218,16 @@ struct ChromecastConsoleView: View {
         case 2:
             pageHeading("03 / 只开启需要的权限", "每一项，都说明白", "完成授权后，再回来检查一次。权限与设备连接是两件事。")
             permissions
+            if !connected {
+                ConsoleCard {
+                    VStack(alignment: .leading, spacing: 12) {
+                        connectionStatus
+                        Text("权限开启后，请重新连接。两个通道都连上才能继续。").font(.caption)
+                        Button("重新连接遥控器") { model.onReconnectInputs?() }.disabled(model.voiceActive)
+                        Button("返回连接说明") { step = 1 }
+                    }
+                }
+            }
         case 3:
             pageHeading("04 / 两种设置，各有分工", "按你的习惯开始说话", "遥控器决定你怎么按，语音工具决定 vRemoter 怎么发送快捷键。")
             voiceSettings
@@ -273,14 +294,14 @@ struct ChromecastConsoleView: View {
         connected && model.accessibilityGranted && model.inputMonitoringGranted && model.bluetoothGranted && audio.isOutputDeviceAvailable && configuration.isValid
     }
     private var canConfirmSpeech: Bool {
-        testArmed && model.receivedAudioPackets > testAudioBaseline && model.completedVoiceSessions > testSessionBaseline && !model.voiceActive && model.voicePresentation.phase == .ended && prerequisitesReady && !testText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        testArmed && model.receivedAudioPackets > testAudioBaseline && model.completedVoiceSessions > testSessionBaseline && !model.voiceActive && model.voicePresentation.phase == .ended && model.voicePresentation.startedAt != nil && prerequisitesReady && !testText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
     private var canAdvance: Bool {
         switch step {
         case 0, 3: return configuration.isValid
         case 1: return connected
-        case 2: return model.accessibilityGranted && model.inputMonitoringGranted && model.bluetoothGranted
-        case 4, 6: return speechEvidence.canComplete && prerequisitesReady && model.voicePresentation.phase == .ended
+        case 2: return connected && model.accessibilityGranted && model.inputMonitoringGranted && model.bluetoothGranted
+        case 4, 6: return speechEvidence.canComplete && prerequisitesReady && model.voicePresentation.phase == .ended && model.voicePresentation.startedAt != nil
         default: return true
         }
     }
@@ -347,7 +368,8 @@ struct ChromecastConsoleView: View {
                 }.font(.system(size: 13))
             }
             ConsoleCard { connectionStatus }
-            ConsoleNotice(text: "若蓝牙访问尚未授权，请在下一步申请；也可在这里先申请，再完成连接。")
+            ConsoleNotice(text: "权限未开启时，Mac 可能无法建立按键通道。可以先检查必要权限，再回来完成连接。")
+            Button("先检查必要权限") { step = 2 }
             if !model.bluetoothGranted { permissionRow("蓝牙", detail: "连接遥控器的语音服务", granted: false, status: model.bluetoothPermissionStatus, kind: .bluetooth) }
             if !permissionRequestResult.isEmpty { Text(permissionRequestResult).font(.caption).textSelection(.enabled) }
         }
@@ -386,7 +408,10 @@ struct ChromecastConsoleView: View {
     private func permissionRow(_ title: String, detail: String, granted: Bool, status: String, kind: PermissionKind) -> some View {
         ConsoleCard {
             HStack(spacing: 16) {
-                Image(systemName: granted ? "checkmark.shield.fill" : "shield").font(.system(size: 22)).foregroundColor(granted ? ConsoleDesignTokens.success : ConsoleDesignTokens.accent)
+                Button { model.activeModal = .permission(kind) } label: {
+                    Image(systemName: granted ? "checkmark.shield.fill" : "shield").font(.system(size: 22))
+                        .foregroundColor(granted ? ConsoleDesignTokens.success : ConsoleDesignTokens.accent)
+                }.buttonStyle(.plain).help("查看" + title + "操作说明").accessibilityLabel("查看" + title + "操作说明")
                 VStack(alignment: .leading, spacing: 5) { Text(title).font(.system(size: 14, weight: .semibold)); Text(detail).font(.system(size: 12)).foregroundColor(ConsoleDesignTokens.secondaryText) }
                 Spacer(minLength: 8)
                 Text(status).font(.system(size: 12)).foregroundColor(granted ? ConsoleDesignTokens.success : ConsoleDesignTokens.secondaryText)
@@ -844,7 +869,7 @@ private struct ChromecastVoiceKeyPhoto: View {
                 Image(nsImage: image).resizable().frame(width: 240, height: 360).offset(x: -45, y: -78)
                 Circle().stroke(ConsoleDesignTokens.accent, lineWidth: 2).frame(width: 42, height: 42).position(x: 69, y: 52)
             } else { Text("黑色语音键\n位于返回键右侧").font(.caption).padding(12) }
-        }.frame(width: 160, height: 112).clipped().cornerRadius(12)
+        }.frame(width: 160, height: 112, alignment: .topLeading).clipped().cornerRadius(12)
             .accessibilityLabel("遥控器实图：返回键右侧的黑色圆形按键是语音键")
     }
 }

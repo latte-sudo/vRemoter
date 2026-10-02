@@ -26,7 +26,7 @@ for contract in ['ChromecastMappingCanvas(', 'ChromecastGlobalVoiceHeader(model:
                  'ChromecastSettingsArchive.validate', 'confirmReplacement(title:',
                  'userConfirmedRecognition: confirmedSpeech', 'TextEditor(text: $testText)',
                  'model.voicePresentation.phase == .ended', '.onChange(of: testText)',
-                 'accessibilityReduceMotion']:
+                 'accessibilityReduceMotion', '先检查必要权限', 'model.voicePresentation.startedAt != nil']:
     check(contract in view, contract)
 check('撤销' not in view, 'no visible undo action')
 check('testText = "你好' not in view, 'no synthetic recognition text')

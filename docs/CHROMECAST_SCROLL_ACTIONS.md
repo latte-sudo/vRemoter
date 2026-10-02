@@ -35,14 +35,14 @@ with customized buttons can select a scroll action manually in the desired slot.
 
 The new default is saved explicitly, so later edits do not silently remove it.
 “Restore Chromecast defaults” restores these new directional defaults. Settings
-export/import/undo preserve the five new target identifiers using the existing
+export/import/restore preserve the five new target identifiers using the existing
 version-1 archive schema; invalid/unknown actions still fail validation.
 
 ## Lifecycle safety
 
 The main-thread mapping controller owns all gesture deadlines. It snapshots
 mappings on press, releases that same action on cancellation, and invalidates
-scheduled callbacks by generation. Release, mapping changes, reset/import/undo,
+scheduled callbacks by generation. Release, mapping changes, reset/import/restore,
 disabling remapping, disconnect, stop/termination and system sleep all discard
 pending repeats. Editing or sleeping while held requires release and a fresh
 press before a new action can start. Disconnect/restart begins a fresh session.
@@ -73,3 +73,5 @@ Before release, verify on macOS 12+ with a physical Chromecast remote:
 CI does not validate hardware cadence, Bluetooth loss, rendered UI, real event
 routing or system permission behavior. No installer/release/signing changes are
 part of this work.
+
+Native UI v6 uses explicit import/reset confirmation with optional export first; there is no user-visible undo action. See [native interface](NATIVE_INTERFACE_IMPLEMENTATION.md).

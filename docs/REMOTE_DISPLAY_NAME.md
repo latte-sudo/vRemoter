@@ -38,7 +38,7 @@ The optional name key is included in existing version-1 archives. Import checks
 the string type and the same name rules before changing settings; restore trims
 the value, and an empty value removes the override. Old v1 archives without a
 name remain valid and restore the default, just like a new install or an upgrade
-without this preference. Reset, import undo and onboarding cancellation restore
+without this preference. Reset, archive restoration and onboarding cancellation restore
 the corresponding saved name and update the presentation. Invalid local values
 also fall back to the model name. The schema version and archive filename remain
 unchanged. Old app builds do not understand this new optional key and may reject
@@ -50,7 +50,7 @@ an archive exported by this build; import compatibility is backward-facing.
 on macOS, archive regression tests for the new key. They cover trim, Chinese,
 emoji, RTL text, exact/over-limit names, invalid controls and types, preserving
 the old value on an invalid save/import, preference rereading, reset, export,
-restore/undo and older v1 archives. The existing macOS CI compiles the application
+restore and older v1 archives. The existing macOS CI compiles the application
 and runs the aggregate suite. Linux edits and source checks are not a macOS build.
 
 Remaining native acceptance before release:
@@ -62,7 +62,9 @@ Remaining native acceptance before release:
 - Rename while disconnected, while connected and during a voice session; ensure
   no voice interruption, remapping change or reconnect occurs
 - Close/reopen the console and restart the app; verify the saved name
-- Export, rename, import, reset and undo; import an older v1 archive and cancel
+- Export, rename, import, reset and restore; import an older v1 archive and cancel
   onboarding; verify the intended name returns and invalid imports change nothing
 - Reconnect the same physical remote with its unchanged Bluetooth name; verify
   normal voice/buttons, including existing continuous scrolling
+
+Native UI v6 uses explicit import/reset confirmation with optional export first; there is no user-visible undo action. See [native interface](NATIVE_INTERFACE_IMPLEMENTATION.md).

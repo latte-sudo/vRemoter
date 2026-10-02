@@ -53,7 +53,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private lazy var chromecastSession = ChromecastVoiceSessionController(doubaoState: doubaoAudioState)
     private var sleepObserver: NSObjectProtocol?
     private let debugWindow = DebugWindowController()
-    private let updateWindow = UpdateWindowController()
     private lazy var x6BLE = BLEBridge(
         nameHint: "X6-Remote",
         savedUUIDFilename: "x6-uuid.txt",
@@ -77,7 +76,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // This release intentionally supports only remote audio, including upgrades.
         AppStorage.macInputEnabled = false
         AppStorage.remoteInputEnabled = true
-        AppAnalytics.configure()
         // Keep one continuous diagnostic history while X6 is being tuned.
         // Log.swift rotates at 5 MB; only the explicit menu action clears it.
         Log.setEnabled(AppStorage.loggingEnabled)
@@ -121,23 +119,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(makeLanguageMenu())
 
         menu.addItem(.separator())
-        let updates = NSMenuItem(
-            title: L10n.text("版本与更新…", "Version & Updates…"),
-            action: #selector(openVersionUpdates),
-            keyEquivalent: ""
-        )
-        updates.target = self
-        menu.addItem(updates)
-
-        let donation = NSMenuItem(
-            title: L10n.text("打赏", "Buy me a coffee"),
-            action: #selector(openDonation),
-            keyEquivalent: ""
-        )
-        donation.target = self
-        menu.addItem(donation)
-
-        menu.addItem(.separator())
         let quit = NSMenuItem(
             title: L10n.text("退出", "Quit"),
             action: #selector(quit),
@@ -151,20 +132,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         chromecastHID.onConnectionChanged = { [weak self] connected in
             self?.chromecastHIDConnected = connected
-            AppAnalytics.signal(
-                connected
-                    ? "Remote.Chromecast.HID.connected"
-                    : "Remote.Chromecast.HID.disconnected"
-            )
             self?.updateStatus()
         }
         chromecastBLE.onConnectionChanged = { [weak self] connected in
             self?.chromecastBLEConnected = connected
-            AppAnalytics.signal(
-                connected
-                    ? "Remote.Chromecast.BLE.connected"
-                    : "Remote.Chromecast.BLE.disconnected"
-            )
             if !connected {
                 self?.chromecastRemoteStreaming = false
                 self?.chromecastSession.disconnected()
@@ -174,19 +145,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         chromecastBLE.onStreamingChanged = { [weak self] streaming, _ in
             self?.chromecastRemoteStreaming = streaming
-            AppAnalytics.signal(
-                streaming
-                    ? "Voice.Chromecast.started"
-                    : "Voice.Chromecast.stopped"
-            )
             self?.refreshCombinedStreaming()
             self?.updateStatus()
         }
         chromecastBLE.onAudioStarted = { [weak self] reason, _ in
             guard AudioPipe.shared.isOutputDeviceAvailable else {
-                self?.chromecastSession.forceClose()
-                self?.voiceStatus = "虚拟音频设备不可用，请先选择音频通道"
-                self?.updateStatus()
+                self?.chromecastSession.outputRouteUnavailable()
                 return
             }
             if reason == 0x03 { self?.debugWindow.observedButton("voice") }
@@ -247,7 +211,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.debugWindow.updateMacLevel(db)
         }
         AudioPipe.shared.onResourcesInvalidated = { [weak self] in
-            self?.chromecastSession.forceClose()
+            self?.chromecastSession.outputRouteUnavailable()
         }
         AudioPipe.shared.onRouteChanged = { [weak self] _ in
             self?.updateStatus()
@@ -257,29 +221,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         DispatchQueue.main.async { [weak self] in
             self?.debugWindow.show()
-        }
-        if CommandLine.arguments.contains("--purchase-demo") {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                self?.debugWindow.showPurchase()
-            }
-        } else if CommandLine.arguments.contains("--update-available-demo") {
-            print("[UPDATE] update-available demo requested")
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                self?.updateWindow.showDemoUpdate()
-            }
-        } else if CommandLine.arguments.contains("--update-current-demo") {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                self?.updateWindow.showUpToDateDemo()
-            }
-        } else if CommandLine.arguments.contains("--updates-window-demo") {
-            print("[UPDATE] updates-window demo requested")
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                self?.updateWindow.show()
-            }
-        } else {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
-                self?.updateWindow.checkAutomatically()
-            }
         }
     }
 
@@ -531,14 +472,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func openDebugWindow() {
         debugWindow.show()
-    }
-
-    @objc private func openDonation() {
-        debugWindow.showDonation()
-    }
-
-    @objc private func openVersionUpdates() {
-        updateWindow.show()
     }
 
     @objc private func selectSystemLanguage() {
