@@ -82,6 +82,11 @@ across pages. A green menu-bar dot indicates actual received voice data; it is
 not a connection or recognition-success indicator. Configuration changes are
 disabled during a voice session.
 
+System/Simplified Chinese/Traditional Chinese/English language selection applies
+immediately and is app-local. It is available in Settings, the setup sidebar and
+the menu bar. Unsupported system languages fall back to English. See
+[localization and copy coverage](docs/LOCALIZATION.md).
+
 Light/Dark/System appearance, Dock visibility, launch at login, an app-local
 remote display name, and bounded configuration import/export/reset are supported.
 Import/reset asks for confirmation and offers export first. Archives exclude

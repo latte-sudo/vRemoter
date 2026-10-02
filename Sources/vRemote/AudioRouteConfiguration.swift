@@ -1,5 +1,67 @@
 import Foundation
 
+/// Stable audio failure identities keep cached route data independent of the
+/// selected interface language. Status codes remain available for diagnostics.
+enum AudioRouteIssue: Equatable {
+    case noSelection, savedDeviceUnavailable, testToneNeedsDevice
+    case cleanupIncomplete, macCaptureStillRunning
+    case creationFailed(Int32)
+    case startFailed(start: Int32, cleanup: Int32)
+    case cleanupFailed(stop: Int32, cleanup: Int32)
+    case deviceOffline, formatUnreadable, unsupportedFormat
+    case sampleRateMismatch, unsupportedChannels
+
+    var message: String {
+        switch self {
+        case .noSelection: L10n.tr("support.audio.issue.noSelection")
+        case .savedDeviceUnavailable: L10n.tr("support.audio.issue.savedDeviceUnavailable")
+        case .testToneNeedsDevice: L10n.tr("support.audio.issue.testToneNeedsDevice")
+        case .cleanupIncomplete: L10n.tr("support.audio.issue.cleanupIncomplete")
+        case .creationFailed: L10n.tr("support.audio.issue.creationFailed")
+        case .startFailed: L10n.tr("support.audio.issue.startFailed")
+        case .cleanupFailed: L10n.tr("support.audio.issue.cleanupFailed")
+        case .macCaptureStillRunning: L10n.tr("support.audio.issue.macCaptureStillRunning")
+        case .deviceOffline: L10n.tr("support.audio.issue.deviceOffline")
+        case .formatUnreadable: L10n.tr("support.audio.issue.formatUnreadable")
+        case .unsupportedFormat: L10n.tr("support.audio.issue.unsupportedFormat")
+        case .sampleRateMismatch: L10n.tr("support.audio.issue.sampleRateMismatch")
+        case .unsupportedChannels: L10n.tr("support.audio.issue.unsupportedChannels")
+        }
+    }
+
+    var localizedDiagnostics: String {
+        let detail: String
+        switch self {
+        case .creationFailed(let status):
+            detail = L10n.tr("support.audio.diagnostic.systemError", status)
+        case .startFailed(let start, let cleanup):
+            detail = L10n.tr("support.audio.diagnostic.startAndCleanup", start, cleanup)
+        case .cleanupFailed(let stop, let cleanup):
+            detail = L10n.tr("support.audio.diagnostic.stopAndCleanup", stop, cleanup)
+        default: return message
+        }
+        return message + "\n" + detail
+    }
+
+    var diagnosticDescription: String {
+        switch self {
+        case .noSelection: "未选择虚拟输出设备"
+        case .savedDeviceUnavailable: "已保存的输出设备不可用；请连接设备后刷新，或重新选择"
+        case .testToneNeedsDevice: "测试音未播放：请先选择可用的虚拟输出设备"
+        case .cleanupIncomplete: "输出清理未完成；请重试关闭会话"
+        case .creationFailed(let status): "创建输出失败：OSStatus=\(status)"
+        case .startFailed(let start, let cleanup): "启动输出失败：OSStatus=\(start)，清理=\(cleanup)"
+        case .cleanupFailed(let stop, let cleanup): "输出清理：停止=\(stop)，销毁=\(cleanup)"
+        case .macCaptureStillRunning: "Mac 麦克风采集尚未停止；请重试关闭会话"
+        case .deviceOffline: "设备当前离线"
+        case .formatUnreadable: "无法读取输出格式"
+        case .unsupportedFormat: "暂不支持此输出格式（需 32-bit Float PCM，8–192 kHz）"
+        case .sampleRateMismatch: "输出流采样率不一致"
+        case .unsupportedChannels: "暂不支持此输出声道配置"
+        }
+    }
+}
+
 /// A virtual output discovered on this Mac. Device IDs are deliberately not
 /// persisted: CoreAudio can assign a different ID after a driver reconnects.
 struct AudioOutputRoute: Equatable, Identifiable {
@@ -7,10 +69,22 @@ struct AudioOutputRoute: Equatable, Identifiable {
     let name: String
     let sampleRate: Double
     let channelCount: UInt32
-    let unavailableReason: String?
+    private let unavailableReasonText: String?
+    let unavailableIssue: AudioRouteIssue?
 
+    init(uid: String, name: String, sampleRate: Double, channelCount: UInt32,
+         unavailableReason: String? = nil, unavailableIssue: AudioRouteIssue? = nil) {
+        self.uid = uid
+        self.name = name
+        self.sampleRate = sampleRate
+        self.channelCount = channelCount
+        self.unavailableReasonText = unavailableReason
+        self.unavailableIssue = unavailableIssue
+    }
+
+    var unavailableReason: String? { unavailableIssue?.message ?? unavailableReasonText }
     var id: String { uid }
-    var isSupported: Bool { unavailableReason == nil }
+    var isSupported: Bool { unavailableIssue == nil && unavailableReasonText == nil }
 }
 
 enum AudioRouteConfiguration {

@@ -3,7 +3,9 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleDevelopmentRegion</key>
-    <string>zh_CN</string>
+    <string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array><string>en</string><string>zh-Hans</string><string>zh-Hant</string></array>
     <key>CFBundleDisplayName</key>
     <string>vRemoter</string>
     <key>CFBundleExecutable</key>
@@ -27,11 +29,11 @@
     <key>LSUIElement</key>
     <true/>
     <key>NSBluetoothAlwaysUsageDescription</key>
-    <string>连接蓝牙语音遥控器并接收语音音频。</string>
+    <string>Connect to your Bluetooth voice remote and receive its audio.</string>
     <key>NSBluetoothPeripheralUsageDescription</key>
-    <string>连接蓝牙语音遥控器并接收语音音频。</string>
+    <string>Connect to your Bluetooth voice remote and receive its audio.</string>
     <key>NSInputMonitoringUsageDescription</key>
-    <string>读取 Chromecast 遥控器按键，并观察配置的键盘语音快捷键。</string>
+    <string>Receive Chromecast remote buttons and your chosen keyboard voice shortcut.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>

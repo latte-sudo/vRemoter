@@ -104,7 +104,7 @@ final class ChromecastVoiceSessionController {
         guard !started else { return }
         started = true
         configureMonitor()
-        publish("语音已就绪", "Voice ready", event: .ready)
+        publish("support.voice.ready", event: .ready)
     }
 
     /// Call after saving settings. The in-flight key is always released using
@@ -122,7 +122,7 @@ final class ChromecastVoiceSessionController {
     /// Publish that failure through the same typed path, while retaining the
     /// forced-stop guarantee for an existing session and its captured key.
     func outputRouteUnavailable() {
-        publish("虚拟音频输出不可用 · 请检查输出设备", "Virtual audio output unavailable · check the output device", event: .failed(.outputStartupFailed))
+        publish("support.voice.outputUnavailable", event: .failed(.outputStartupFailed))
         forceClose()
     }
 
@@ -140,11 +140,11 @@ final class ChromecastVoiceSessionController {
     func disconnected() {
         physicalKeyboardDown = false
         if machine.isActive {
-            publish("遥控器连接已中断", "Remote disconnected", event: .failed(.remoteDisconnected))
+            publish("support.voice.disconnected", event: .failed(.remoteDisconnected))
         }
         closeSession(reason: "remote disconnected", sendEndShortcut: true, immediateKeyRelease: true)
         guard !isActive else { return }
-        publish("遥控器已断开 · 语音已关闭", "Remote disconnected · voice closed", event: .ended)
+        publish("support.voice.disconnectedClosed", event: .ended)
     }
 
     // MARK: - Physical remote and ATVV transport
@@ -164,7 +164,7 @@ final class ChromecastVoiceSessionController {
         guard configuration.isValid else {
             closeSession(reason: "invalid target configuration", sendEndShortcut: true, immediateKeyRelease: true)
             guard !isActive else { return }
-            publish("请先选择输入工具并设置触发键", "Choose an input tool and matching shortcut first", event: .failed(.invalidConfiguration))
+            publish("support.voice.chooseApp", event: .failed(.invalidConfiguration))
             return
         }
         let effects = machine.remoteAudioStarted(reason: reason, mode: configuration.remoteVoiceMode)
@@ -177,7 +177,7 @@ final class ChromecastVoiceSessionController {
     func remoteAudioStopped(reason: UInt8) {
         let effects = machine.remoteAudioStopped(reason: reason)
         if reason != 0x02, effects.contains(.endSession) {
-            publish("遥控器音频意外中断", "Remote audio stopped unexpectedly", event: .failed(.transportStopped))
+            publish("support.voice.interrupted", event: .failed(.transportStopped))
         }
         if effects.contains(.requestHostOpen) {
             cancelOpenWork()
@@ -273,10 +273,10 @@ final class ChromecastVoiceSessionController {
         targetRecordingConfirmed = false
         ownsTargetShortcut = sendShortcut
         keyboardOwnsSession = !sendShortcut
-        publish("语音启动中 · 等待音频确认", "Voice starting · awaiting audio confirmation", event: .sessionBegan)
+        publish("support.voice.starting", event: .sessionBegan)
         // Validate and start our output before synthesizing a target trigger.
         guard setRouteActive(true) else {
-            publish("虚拟输出启动失败 · 未触发输入工具", "Virtual output failed to start · input tool was not triggered", event: .failed(.outputStartupFailed))
+            publish("support.voice.outputFailed", event: .failed(.outputStartupFailed))
             closeSession(reason: "output startup failed", sendEndShortcut: false, immediateKeyRelease: true)
             return
         }
@@ -295,7 +295,7 @@ final class ChromecastVoiceSessionController {
         let firstPCM = DispatchWorkItem { [weak self] in
             guard let self, self.machine.isActive, self.machine.generation == generation else { return }
             self.firstPCMWork = nil
-            self.publish("未收到遥控器音频 · 请重试", "No remote audio received · try again", event: .failed(.noRemoteAudio))
+            self.publish("support.voice.noAudio", event: .failed(.noRemoteAudio))
             self.closeSession(reason: "no first audio packet", sendEndShortcut: true, immediateKeyRelease: true)
         }
         firstPCMWork = firstPCM
@@ -310,7 +310,7 @@ final class ChromecastVoiceSessionController {
                 } else {
                     // Never send another toggle when startup failed: it could
                     // accidentally open an application that was still idle.
-                    self.publish("输入工具未启动 · 请检查工具和快捷键", "Input tool did not start · check the tool and shortcut", event: .failed(.inputToolDidNotStart))
+                    self.publish("support.voice.appNotStarted", event: .failed(.inputToolDidNotStart))
                     self.closeSession(reason: "input tool did not start", sendEndShortcut: false, immediateKeyRelease: true)
                 }
             }
@@ -320,7 +320,7 @@ final class ChromecastVoiceSessionController {
 
         let timeout = DispatchWorkItem { [weak self] in
             guard let self, self.machine.isActive, self.machine.generation == generation else { return }
-            self.publish("录音超时", "Recording timed out", event: .failed(.recordingTimedOut))
+            self.publish("support.voice.timedOut", event: .failed(.recordingTimedOut))
             self.closeSession(reason: "safety timeout", sendEndShortcut: true, immediateKeyRelease: true)
         }
         sessionTimeoutWork = timeout
@@ -347,7 +347,7 @@ final class ChromecastVoiceSessionController {
                 isFinishing = true
                 finishSendsEndShortcut = false
                 finishReason = reason
-                publish("本地音频资源尚未释放 · 请重试停止", "Local audio resources are still closing · retry stop", event: .failed(.localAudioStillClosing))
+                publish("support.voice.stillClosing", event: .failed(.localAudioStillClosing))
             }
         }
     }
@@ -357,7 +357,7 @@ final class ChromecastVoiceSessionController {
         isFinishing = true
         finishReason = reason
         finishSendsEndShortcut = sendEndShortcut
-        publish("正在结束语音 · 等待音频释放", "Ending voice · waiting for audio release", event: .ending)
+        publish("support.voice.ending", event: .ending)
         // Stop the source now, while queued PCM gets a small bounded drain
         // through the still-active route and the target's still-open capture.
         onMicrophoneCloseRequested?()
@@ -417,7 +417,7 @@ final class ChromecastVoiceSessionController {
         let reason = finishReason
         let configuration = sessionConfiguration
         guard setRouteActive(false) else {
-            publish("本地音频资源尚未释放 · 请重试停止", "Local audio resources are still closing · retry stop", event: .failed(.localAudioStillClosing))
+            publish("support.voice.stillClosing", event: .failed(.localAudioStillClosing))
             return
         }
         finishEndPulsePending = false
@@ -427,7 +427,7 @@ final class ChromecastVoiceSessionController {
         targetRecordingConfirmed = false
         isFinishing = false
         print("[CAST-VOICE] session closed reason=\(reason) generation=\(machine.generation)")
-        publish("本地语音已关闭 · 输入工具停止状态待确认", "Local voice closed · input tool stop not yet confirmed", event: .ended)
+        publish("support.voice.stoppedUnconfirmed", event: .ended)
         onSessionEnded?()
         confirmTargetStopped(configuration: configuration)
     }
@@ -443,7 +443,7 @@ final class ChromecastVoiceSessionController {
     private func confirmTargetStopped(configuration: VoiceConfiguration?) {
         cancelStopConfirmation()
         guard configuration?.usesAuthoritativeAudioMonitor == true else {
-            publish("本地语音已关闭 · 自定义工具停止状态未确认", "Local voice closed · custom tool stop not confirmed", event: .targetStopChecked(.unconfirmed))
+            publish("support.voice.customUnconfirmed", event: .targetStopChecked(.unconfirmed))
             return
         }
         let generation = stopConfirmationGeneration
@@ -452,11 +452,11 @@ final class ChromecastVoiceSessionController {
             self.targetStopConfirmationWork = nil
             switch self.doubaoState.snapshotNow().state {
             case .inactive:
-                self.publish("本地语音已关闭 · 已确认豆包停止录音", "Local voice closed · Doubao stopped recording", event: .targetStopChecked(.confirmed))
+                self.publish("support.voice.doubaoStopped", event: .targetStopChecked(.confirmed))
             case .active:
-                self.publish("本地语音已关闭 · 警告：豆包仍在录音，请在豆包中停止", "Local voice closed · warning: Doubao is still recording; stop it in Doubao", event: .failed(.targetStillRecording))
+                self.publish("support.voice.doubaoStillRecording", event: .failed(.targetStillRecording))
             case .unavailable:
-                self.publish("本地语音已关闭 · 豆包停止状态未确认", "Local voice closed · Doubao stop not confirmed", event: .targetStopChecked(.unconfirmed))
+                self.publish("support.voice.doubaoUnconfirmed", event: .targetStopChecked(.unconfirmed))
             }
         }
         targetStopConfirmationWork = confirmation
@@ -528,7 +528,7 @@ final class ChromecastVoiceSessionController {
     }
 
     private func failHostOpen() {
-        publish("遥控器音频连接失败 · 请重试", "Remote audio connection failed · try again", event: .failed(.remoteAudioFailed))
+        publish("support.voice.connectionFailed", event: .failed(.remoteAudioFailed))
         closeSession(reason: "microphone reopen failed", sendEndShortcut: true, immediateKeyRelease: true)
     }
 
@@ -548,7 +548,7 @@ final class ChromecastVoiceSessionController {
     private func handleTargetSnapshot(_ snapshot: DoubaoAudioStateMonitor.Snapshot) {
         if started, monitorStarted, !isActive,
            presentation.failure == .targetStillRecording, snapshot.state == .inactive {
-            publish("本地语音已关闭 · 已确认豆包停止录音", "Local voice closed · Doubao stopped recording", event: .targetStopChecked(.confirmed))
+            publish("support.voice.doubaoStopped", event: .targetStopChecked(.confirmed))
             return
         }
         guard started, monitorStarted, machine.isActive,
@@ -566,7 +566,7 @@ final class ChromecastVoiceSessionController {
             // synthesize a toggle that would start it again.
             guard targetRecordingConfirmed else { return }
             if snapshot.state == .unavailable {
-                publish("输入工具录音状态不可用", "Input tool recording state unavailable", event: .failed(.targetObservationLost))
+                publish("support.voice.appStatusLost", event: .failed(.targetObservationLost))
             }
             closeSession(reason: "input tool stopped", sendEndShortcut: false, immediateKeyRelease: true)
         }
@@ -638,14 +638,14 @@ final class ChromecastVoiceSessionController {
         // recording before the first real PCM packet has arrived.
         let targetReady = sessionConfiguration?.usesAuthoritativeAudioMonitor != true || targetRecordingConfirmed
         if !receivedFirstPCM || !targetReady {
-            publish("语音启动中 · 等待音频确认", "Voice starting · awaiting audio confirmation", event: .waitingForAudio)
+            publish("support.voice.starting", event: .waitingForAudio)
         } else {
-            publish("录音中", "Recording", event: .recording)
+            publish("support.voice.recording", event: .recording)
         }
     }
 
-    private func publish(_ chinese: String, _ english: String, event: VoiceSessionPresentation.Event) {
-        presentation.apply(event, detail: L10n.text(chinese, english), at: Date())
+    private func publish(_ key: String, event: VoiceSessionPresentation.Event) {
+        presentation.apply(event, localizationKey: key, at: Date())
         onPresentationChanged?(presentation)
         onStateChanged?(presentation.detail)
     }

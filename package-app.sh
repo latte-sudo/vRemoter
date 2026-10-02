@@ -13,6 +13,11 @@ mkdir -p "$CONTENTS/MacOS"
 mkdir -p "$CONTENTS/Resources"
 cp "$SCRIPT_DIR/.build/release/vRemote" "$CONTENTS/MacOS/vRemote"
 cp "$SCRIPT_DIR/Packaging/Info.plist" "$CONTENTS/Info.plist"
+# App-owned language resources are also processed by SwiftPM for swift run.
+for language in en zh-Hans zh-Hant; do
+  ditto "$SCRIPT_DIR/Sources/vRemote/Resources/$language.lproj" \
+    "$CONTENTS/Resources/$language.lproj"
+done
 for localization in "$SCRIPT_DIR/Packaging"/*.lproj; do
   [[ -d "$localization" ]] || continue
   ditto "$localization" "$CONTENTS/Resources/${localization:t}"

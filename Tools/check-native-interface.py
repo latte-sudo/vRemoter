@@ -12,12 +12,12 @@ def check(condition, message):
     global checks
     assert condition, message
     checks += 1
-steps = re.search(r'private let steps = \[(.*?)\]', view).group(1)
+steps = re.search(r'private var steps: \[String\] \{ \[(.*?)\]', view).group(1)
 check(len(re.findall(r'"[^"]+"', steps)) == 7, 'exactly seven onboarding steps')
 check('static let stepCount = 7' in progress, 'migration matches UI')
 check('return min(normalized, trialStep)' in progress, 'resume cannot reuse persisted trial proof')
-for title in ['语音和音频', '遥控器', '权限与诊断', '设置']:
-    check(f'return "{title}"' in view, 'four native settings destinations')
+for title in ['voice', 'remote', 'permissions', 'settings']:
+    check(f'return L10n.tr("console.page.{title}")' in view, 'four native settings destinations')
 for name, light, dark in re.findall(r'static let (\w+) = color\(0x([0-9a-f]+), 0x([0-9a-f]+)\)', tokens):
     check('#' + light in prototype or light == 'ffffff', f'{name} light matches prototype')
     check('#' + dark in prototype, f'{name} dark matches prototype')
@@ -26,7 +26,7 @@ for contract in ['ChromecastMappingCanvas(', 'ChromecastGlobalVoiceHeader(model:
                  'ChromecastSettingsArchive.validate', 'confirmReplacement(title:',
                  'userConfirmedRecognition: confirmedSpeech', 'TextEditor(text: $testText)',
                  'model.voicePresentation.phase == .ended', '.onChange(of: testText)',
-                 'accessibilityReduceMotion', '先检查必要权限', 'model.voicePresentation.startedAt != nil']:
+                 'accessibilityReduceMotion', 'console.connection.checkPermissionsFirst', 'model.voicePresentation.startedAt != nil']:
     check(contract in view, contract)
 check('撤销' not in view, 'no visible undo action')
 check('testText = "你好' not in view, 'no synthetic recognition text')

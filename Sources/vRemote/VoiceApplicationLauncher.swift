@@ -8,7 +8,9 @@ struct VoiceApplicationLaunchSuccess: Equatable {
     let activated: Bool
     var message: String {
         let name = applicationURL.deletingPathExtension().lastPathComponent
-        return activated ? "已打开并激活 \(name)。" : "已启动 \(name)，但应用没有切到前台。请从菜单栏或 Dock 打开其设置。"
+        return activated
+            ? L10n.tr("support.launcher.opened", name)
+            : L10n.tr("support.launcher.startedInBackground", name)
     }
 }
 
@@ -20,10 +22,10 @@ enum VoiceApplicationLaunchError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .invalidConfiguration: return "请选择有效的 .app 应用，或填写有效的应用 Bundle ID。"
-        case .notFound(let target): return "未找到语音工具（\(target)）。请先安装，或重新选择应用。"
-        case .invalidApplication(let path): return "无法打开所选应用（\(path)）：不是可运行的 .app，或 Bundle ID 与所选工具不符。请重新选择。"
-        case .launchFailed(let detail): return "打开语音工具失败：\(detail)"
+        case .invalidConfiguration: return L10n.tr("support.launcher.invalidConfiguration")
+        case .notFound: return L10n.tr("support.launcher.notFound")
+        case .invalidApplication: return L10n.tr("support.launcher.invalidApp")
+        case .launchFailed: return L10n.tr("support.launcher.failed")
         }
     }
 }
@@ -87,7 +89,9 @@ final class VoiceApplicationLauncher {
             switch result {
             case .success(let activated):
                 completion(.success(VoiceApplicationLaunchSuccess(applicationURL: url, activated: activated)))
-            case .failure(let error): completion(.failure(.launchFailed(error.localizedDescription)))
+            case .failure(let error):
+                print("[VOICE-APP] Launch failed: \(error)")
+                completion(.failure(.launchFailed(error.localizedDescription)))
             }
         }
     }
@@ -129,7 +133,7 @@ extension VoiceApplicationLaunchEnvironment {
                     DispatchQueue.main.async {
                         if let error { completion(.failure(error)); return }
                         guard let application, !application.isTerminated else {
-                            completion(.failure(VoiceApplicationLaunchError.launchFailed("系统未返回正在运行的应用。"))); return
+                            completion(.failure(VoiceApplicationLaunchError.launchFailed("The system did not return a running application."))); return
                         }
                         let activated = application.isActive || application.activate(options: [.activateIgnoringOtherApps])
                         completion(.success(activated))

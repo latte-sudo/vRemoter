@@ -7,7 +7,9 @@ if ! command -v swiftc >/dev/null 2>&1; then
 fi
 OUTPUT="$(mktemp -d "${TMPDIR:-/tmp}/vremote-voice-tests.XXXXXX")"
 trap 'rm -rf "$OUTPUT"' EXIT
+cp -R "$ROOT/Sources/vRemote/Resources/"*.lproj "$OUTPUT/"
 swiftc \
+  "$ROOT/Sources/vRemote/Localization.swift" \
   "$ROOT/Sources/vRemote/RemoteVoiceSupport.swift" \
   "$ROOT/Sources/vRemote/AudioResourceLease.swift" \
   "$ROOT/SelfTests/AudioResourceLeaseTests.swift" \

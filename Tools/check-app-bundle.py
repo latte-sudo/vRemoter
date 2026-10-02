@@ -76,6 +76,12 @@ check(sorted(path.name for path in guides.glob("*.png")) == expected_guides, "pa
 for name in expected_guides:
     check((guides / name).read_bytes() == (source_guides / name).read_bytes(), f"permission guide differs: {name}")
 
+for language in ["en", "zh-Hans", "zh-Hant"]:
+    source = root / "Sources/vRemote/Resources" / (language + ".lproj") / "Localizable.strings"
+    packaged = resources / (language + ".lproj") / "Localizable.strings"
+    check(packaged.is_file(), f"app translation resource missing: {language}")
+    check(packaged.read_bytes() == source.read_bytes(), f"app translation differs: {language}")
+
 for localization in (root / "Packaging").glob("*.lproj"):
     for source in localization.rglob("*"):
         if source.is_file():

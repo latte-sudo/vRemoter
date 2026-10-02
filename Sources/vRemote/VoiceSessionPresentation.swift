@@ -37,7 +37,14 @@ struct VoiceSessionPresentation: Equatable {
     }
 
     private(set) var phase: Phase = .idle
-    private(set) var detail = ""
+    // Keep the message's identity so switching languages can redraw an active
+    // or finished session without restarting it or changing its timestamps.
+    private var detailText = ""
+    private var detailKey: String?
+    var detail: String {
+        guard let detailKey else { return detailText }
+        return L10n.tr(detailKey)
+    }
     private(set) var sessionStartedAt: Date?
     /// Set only after real PCM and any required target confirmation arrive.
     private(set) var startedAt: Date?
@@ -47,6 +54,7 @@ struct VoiceSessionPresentation: Equatable {
     private struct FailureRecord: Equatable {
         let reason: Failure
         let detail: String
+        let localizationKey: String?
     }
     private var failures = [FailureRecord]()
 
@@ -58,7 +66,15 @@ struct VoiceSessionPresentation: Equatable {
         return max(0, (endedAt ?? date).timeIntervalSince(startedAt))
     }
 
-    mutating func apply(_ event: Event, detail newDetail: String, at date: Date) {
+    mutating func apply(_ event: Event, detail: String, at date: Date) {
+        apply(event, detail: detail, localizationKey: nil, at: date)
+    }
+
+    mutating func apply(_ event: Event, localizationKey: String, at date: Date) {
+        apply(event, detail: "", localizationKey: localizationKey, at: date)
+    }
+
+    private mutating func apply(_ event: Event, detail newDetail: String, localizationKey: String?, at date: Date) {
         switch event {
         case .ready:
             // Wake and routine cleanup must not dismiss an actionable failure.
@@ -93,13 +109,14 @@ struct VoiceSessionPresentation: Equatable {
             phase = sessionStartedAt == nil ? .idle : .ended
         case .failed(let reason):
             failures.removeAll { $0.reason == reason }
-            failures.append(FailureRecord(reason: reason, detail: newDetail))
+            failures.append(FailureRecord(reason: reason, detail: newDetail, localizationKey: localizationKey))
             failure = reason
             phase = .error
             if startedAt != nil, endedAt == nil { endedAt = date }
             if reason == .targetStillRecording { targetStopStatus = .stillRecording }
         }
-        detail = newDetail
+        detailText = newDetail
+        detailKey = localizationKey
     }
 
     private mutating func recover(from reason: Failure) {
@@ -107,6 +124,9 @@ struct VoiceSessionPresentation: Equatable {
         // target stopped cannot dismiss an unrelated earlier startup fault.
         failures.removeAll { $0.reason == reason }
         failure = failures.last?.reason
-        if let previous = failures.last { detail = previous.detail }
+        if let previous = failures.last {
+            detailText = previous.detail
+            detailKey = previous.localizationKey
+        }
     }
 }

@@ -1,3 +1,3 @@
-"NSBluetoothAlwaysUsageDescription" = "连接蓝牙语音遥控器并接收语音音频。";
-"NSBluetoothPeripheralUsageDescription" = "连接蓝牙语音遥控器并接收语音音频。";
-"NSInputMonitoringUsageDescription" = "读取 Chromecast 遥控器按键，并观察配置的键盘语音快捷键。";
+"NSBluetoothAlwaysUsageDescription" = "连接蓝牙语音遥控器并接收声音。";
+"NSBluetoothPeripheralUsageDescription" = "连接蓝牙语音遥控器并接收声音。";
+"NSInputMonitoringUsageDescription" = "接收 Chromecast 遥控器按键和你选择的键盘语音快捷键。";

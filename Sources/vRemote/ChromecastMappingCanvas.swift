@@ -4,6 +4,7 @@ import SwiftUI
 /// Photo, callouts and cards share one coordinate system, so resizing cannot
 /// separate a connector from its physical button or its destination card.
 struct ChromecastMappingCanvas: View {
+    @ObservedObject private var language = LanguageStore.shared
     let selectedButton: String
     let selectedGesture: RemoteButtonGesture?
     let observedButton: String?
@@ -39,7 +40,7 @@ struct ChromecastMappingCanvas: View {
             Image(nsImage: image).resizable().scaledToFit()
         } else {
             RoundedRectangle(cornerRadius: 12).fill(Color.secondary.opacity(0.1))
-                .overlay(Text("遥控器图片未找到").font(.caption))
+                .overlay(Text(L10n.tr("support.canvas.photoMissing")).font(.caption))
         }
     }
 
@@ -55,14 +56,14 @@ struct ChromecastMappingCanvas: View {
     }
 
     private func hotspot(_ placement: ChromecastMappingLayout.Placement) -> some View {
-        let title = RemoteProfiles.chromecastButtons.first(where: { $0.id == placement.id })?.title ?? "语音"
+        let title = RemoteProfiles.chromecastButtons.first(where: { $0.id == placement.id })?.title ?? L10n.tr("support.button.voice")
         return Button {
             if placement.id == "voice" { onVoiceSettings() } else { onSelect(placement.id) }
         } label: {
             Circle().fill(Color.clear)
                 .overlay(Circle().stroke(observedButton == placement.id ? Color.green : Color.clear, lineWidth: 2))
                 .frame(width: 28, height: 28).contentShape(Circle())
-        }.buttonStyle(.plain).help(title).accessibilityLabel("定位：" + title)
+        }.buttonStyle(.plain).help(title).accessibilityLabel(L10n.tr("support.canvas.locate", title))
     }
 
     private func connections(_ metrics: ChromecastMappingLayout.Metrics) -> some View {
@@ -93,6 +94,7 @@ struct ChromecastMappingCanvas: View {
 }
 
 private struct ChromecastMappingCard: View {
+    @ObservedObject private var languageStore = LanguageStore.shared
     let button: RemoteButtonDefinition
     let selected: Bool
     let observed: Bool
@@ -109,7 +111,7 @@ private struct ChromecastMappingCard: View {
                     Image(systemName: button.symbol).frame(width: 14)
                     Text(button.title).fontWeight(.semibold).lineLimit(1)
                     Spacer(minLength: 0)
-                    if observed { Text("收到").font(.caption2).foregroundColor(.green) }
+                    if observed { Text(L10n.tr("support.canvas.received")).font(.caption2).foregroundColor(.green) }
                 }.font(.system(size: 13)).contentShape(Rectangle())
             }.buttonStyle(.plain)
             HStack(spacing: 4) {
@@ -128,6 +130,7 @@ private struct ChromecastMappingCard: View {
 }
 
 private struct ChromecastMappingGestureCell: View {
+    @ObservedObject private var languageStore = LanguageStore.shared
     let buttonTitle: String
     let gesture: RemoteButtonGesture
     let actionTitle: String
@@ -136,7 +139,7 @@ private struct ChromecastMappingGestureCell: View {
 
     private var label: some View {
         VStack(spacing: 1) {
-            Text(gesture.title).foregroundColor(.secondary).fontWeight(.medium)
+            Text(gesture.title).foregroundColor(.secondary).fontWeight(.medium).lineLimit(1).minimumScaleFactor(0.8)
             Text(actionTitle).fontWeight(gesture == .click ? .semibold : .regular)
                 .lineLimit(1).truncationMode(.tail)
         }.font(.system(size: 12))
@@ -148,12 +151,13 @@ private struct ChromecastMappingGestureCell: View {
     }
     var body: some View {
         Button(action: onEdit) { label }.buttonStyle(.plain)
-            .help("\(buttonTitle) · \(gesture.title)：\(actionTitle)")
-            .accessibilityLabel("\(buttonTitle)，\(gesture.title)，当前动作：\(actionTitle)，编辑")
+            .help(L10n.tr("support.canvas.actionHelp", buttonTitle, gesture.title, actionTitle))
+            .accessibilityLabel(L10n.tr("support.canvas.editAction", buttonTitle, gesture.title, actionTitle))
     }
 }
 
 private struct ChromecastVoiceMappingCard: View {
+    @ObservedObject private var languageStore = LanguageStore.shared
     let active: Bool
     let modeTitle: String
     let onSettings: () -> Void
@@ -161,20 +165,20 @@ private struct ChromecastVoiceMappingCard: View {
         Button(action: onSettings) {
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 6) {
-                    Label("语音键", systemImage: "mic.fill").font(.system(size: 13, weight: .semibold))
+                    Label(L10n.tr("support.canvas.voiceButton"), systemImage: "mic.fill").font(.system(size: 13, weight: .semibold))
                     Spacer(minLength: 0)
-                    Text("固定语音输入").font(.system(size: 10)).foregroundColor(.secondary)
+                    Text(L10n.tr("support.canvas.voiceOnly")).font(.system(size: 10)).foregroundColor(.secondary)
                         .padding(.horizontal, 5).padding(.vertical, 2)
                         .background(Color.secondary.opacity(0.12)).clipShape(Capsule())
                 }.font(.system(size: 13))
-                Text(modeTitle + "\n专用语音键 · 点击设置")
-                    .font(.system(size: 11)).foregroundColor(.secondary).lineLimit(2)
+                Text(modeTitle).font(.system(size: 11)).foregroundColor(.secondary).lineLimit(2)
+                Text(L10n.tr("support.canvas.editVoice")).font(.system(size: 10)).foregroundColor(.accentColor).lineLimit(1)
             }.padding(.horizontal, 9).padding(.vertical, 6)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                 .background(active ? Color.green.opacity(0.1) : Color.primary.opacity(0.035))
                 .cornerRadius(10)
                 .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.secondary.opacity(0.15)))
-        }.buttonStyle(.plain).help("设置语音键的说话方式；不配置普通手势")
+        }.buttonStyle(.plain).help(L10n.tr("support.canvas.voiceHelp"))
     }
 }
 

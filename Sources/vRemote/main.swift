@@ -28,7 +28,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var chromecastHIDConnected = false
     private var chromecastBLEConnected = false
     private var chromecastRemoteStreaming = false
-    private var voiceStatus = ""
     private var menuStatusSummary = "vRemoter"
     private var voiceReception = MenuBarVoiceReception()
     private var voiceReceptionTimer: Timer?
@@ -75,8 +74,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let menu = NSMenu()
         menu.delegate = self
-        let header = NSMenuItem(
-            title: L10n.text("状态 · 启动中", "Status · Starting"),
+        let header = localizedMenuItem("shell.status.starting",
             action: nil,
             keyEquivalent: ""
         )
@@ -84,8 +82,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(header)
         headerLabel = header
 
-        let launch = NSMenuItem(
-            title: L10n.text("登录时自动启动", "Launch at login"),
+        let launch = localizedMenuItem("shell.menu.launch_at_login",
             action: #selector(toggleLaunchAtLogin),
             keyEquivalent: ""
         )
@@ -100,8 +97,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(makeLanguageMenu())
 
         menu.addItem(.separator())
-        let quit = NSMenuItem(
-            title: L10n.text("退出", "Quit"),
+        let quit = localizedMenuItem("shell.menu.quit",
             action: #selector(quit),
             keyEquivalent: "q"
         )
@@ -110,6 +106,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.menu = menu
         refreshMenuState()
         wireDebugWindow()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(languageDidChange),
+            name: .appLanguageDidChange,
+            object: nil
+        )
 
         chromecastHID.onConnectionChanged = { [weak self] connected in
             self?.chromecastHIDConnected = connected
@@ -168,11 +170,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         chromecastSession.onMicrophoneCloseRequested = { [weak self] in
             self?.chromecastBLE.closeMicrophone(force: true)
         }
-        chromecastSession.onStateChanged = { [weak self] status in
-            guard let self else { return }
-            self.voiceStatus = status
-            self.updateStatus()
-        }
+        chromecastSession.onStateChanged = { [weak self] _ in self?.updateStatus() }
         chromecastSession.onPresentationChanged = { [weak self] presentation in
             guard let self else { return }
             self.debugWindow.voiceStateChanged(presentation, active: self.chromecastSession.isActive)
@@ -227,11 +225,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func makeLogMenu() -> NSMenuItem {
-        let root = NSMenuItem(title: L10n.text("日志", "Logs"), action: nil, keyEquivalent: "")
-        let submenu = NSMenu(title: L10n.text("日志", "Logs"))
+        let root = localizedMenuItem("shell.menu.logs", action: nil, keyEquivalent: "")
+        let submenu = NSMenu(title: L10n.tr("shell.menu.logs"))
 
-        let toggle = NSMenuItem(
-            title: L10n.text("记录日志", "Record logs"),
+        let toggle = localizedMenuItem("shell.menu.record_logs",
             action: #selector(toggleLogging),
             keyEquivalent: ""
         )
@@ -239,29 +236,26 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         submenu.addItem(toggle)
         loggingToggleItem = toggle
 
-        let size = NSMenuItem(title: L10n.text("占用 · 0 字节", "Size · 0 bytes"), action: nil, keyEquivalent: "")
+        let size = localizedMenuItem("shell.storage.empty", action: nil, keyEquivalent: "")
         size.isEnabled = false
         submenu.addItem(size)
         logSizeItem = size
 
-        let refresh = NSMenuItem(
-            title: L10n.text("刷新占用大小", "Refresh size"),
+        let refresh = localizedMenuItem("shell.storage.refresh",
             action: #selector(refreshStorageSizes),
             keyEquivalent: ""
         )
         refresh.target = self
         submenu.addItem(refresh)
 
-        let open = NSMenuItem(
-            title: L10n.text("打开日志文件夹", "Open logs folder"),
+        let open = localizedMenuItem("shell.menu.open_logs",
             action: #selector(openLogFolder),
             keyEquivalent: ""
         )
         open.target = self
         submenu.addItem(open)
 
-        let clear = NSMenuItem(
-            title: L10n.text("清空日志", "Clear logs"),
+        let clear = localizedMenuItem("shell.menu.clear_logs",
             action: #selector(clearLog),
             keyEquivalent: ""
         )
@@ -273,27 +267,24 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func makeControlMenu() -> NSMenuItem {
-        let root = NSMenuItem(title: L10n.text("控制台", "Console"), action: nil, keyEquivalent: "")
-        let submenu = NSMenu(title: L10n.text("控制台", "Console"))
+        let root = localizedMenuItem("shell.menu.controls", action: nil, keyEquivalent: "")
+        let submenu = NSMenu(title: L10n.tr("shell.menu.controls"))
 
-        let open = NSMenuItem(
-            title: L10n.text("打开前台控制台", "Open console"),
+        let open = localizedMenuItem("shell.menu.open_controls",
             action: #selector(openDebugWindow),
             keyEquivalent: ""
         )
         open.target = self
         submenu.addItem(open)
 
-        let stop = NSMenuItem(
-            title: L10n.text("关闭麦克风", "Stop microphone"),
+        let stop = localizedMenuItem("shell.menu.stop_voice",
             action: #selector(stopMicrophone),
             keyEquivalent: ""
         )
         stop.target = self
         submenu.addItem(stop)
 
-        let restart = NSMenuItem(
-            title: L10n.text("重启 App", "Restart app"),
+        let restart = localizedMenuItem("shell.menu.restart",
             action: #selector(restartApp),
             keyEquivalent: ""
         )
@@ -305,11 +296,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func makeRecordingMenu() -> NSMenuItem {
-        let root = NSMenuItem(title: L10n.text("调试录音", "Debug recordings"), action: nil, keyEquivalent: "")
-        let submenu = NSMenu(title: L10n.text("调试录音", "Debug recordings"))
+        let root = localizedMenuItem("shell.menu.recordings", action: nil, keyEquivalent: "")
+        let submenu = NSMenu(title: L10n.tr("shell.menu.recordings"))
 
-        let toggle = NSMenuItem(
-            title: L10n.text("保存 WAV 与原始数据", "Save WAV and raw data"),
+        let toggle = localizedMenuItem("shell.menu.save_recordings",
             action: #selector(toggleRecording),
             keyEquivalent: ""
         )
@@ -317,29 +307,26 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         submenu.addItem(toggle)
         recordingToggleItem = toggle
 
-        let size = NSMenuItem(title: L10n.text("占用 · 0 字节", "Size · 0 bytes"), action: nil, keyEquivalent: "")
+        let size = localizedMenuItem("shell.storage.empty", action: nil, keyEquivalent: "")
         size.isEnabled = false
         submenu.addItem(size)
         recordingSizeItem = size
 
-        let refresh = NSMenuItem(
-            title: L10n.text("刷新占用大小", "Refresh size"),
+        let refresh = localizedMenuItem("shell.storage.refresh",
             action: #selector(refreshStorageSizes),
             keyEquivalent: ""
         )
         refresh.target = self
         submenu.addItem(refresh)
 
-        let open = NSMenuItem(
-            title: L10n.text("打开录音文件夹", "Open recordings folder"),
+        let open = localizedMenuItem("shell.menu.open_recordings",
             action: #selector(openRecordingFolder),
             keyEquivalent: ""
         )
         open.target = self
         submenu.addItem(open)
 
-        let clear = NSMenuItem(
-            title: L10n.text("清空录音文件", "Clear recordings"),
+        let clear = localizedMenuItem("shell.menu.clear_recordings",
             action: #selector(clearRecordings),
             keyEquivalent: ""
         )
@@ -351,19 +338,20 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func makeLanguageMenu() -> NSMenuItem {
-        let root = NSMenuItem(
-            title: L10n.text("语言", "Language"),
+        let root = localizedMenuItem("shell.menu.language",
             action: nil,
             keyEquivalent: ""
         )
-        let submenu = NSMenu(title: L10n.text("语言", "Language"))
-        let options: [(AppLanguage, String, Selector)] = [
-            (.system, L10n.text("跟随系统", "System Default"), #selector(selectSystemLanguage)),
-            (.simplifiedChinese, "简体中文", #selector(selectSimplifiedChinese)),
-            (.english, "English", #selector(selectEnglish))
+        let submenu = NSMenu(title: L10n.tr("shell.menu.language"))
+        let options: [(AppLanguage, Selector)] = [
+            (.system, #selector(selectSystemLanguage)),
+            (.simplifiedChinese, #selector(selectSimplifiedChinese)),
+            (.traditionalChinese, #selector(selectTraditionalChinese)),
+            (.english, #selector(selectEnglish))
         ]
-        for (language, title, selector) in options {
-            let item = NSMenuItem(title: title, action: selector, keyEquivalent: "")
+        for (language, selector) in options {
+            let item = NSMenuItem(title: language.title, action: selector, keyEquivalent: "")
+            item.representedObject = language
             item.target = self
             item.state = AppLanguage.selected == language ? .on : .off
             submenu.addItem(item)
@@ -378,13 +366,15 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let doubaoSnapshot = doubaoAudioState.snapshotNow()
         let statusText: String
         if !chromecastHIDConnected && !chromecastBLEConnected {
-            statusText = L10n.text("等待遥控器连接", "Waiting for remote connection")
+            statusText = L10n.tr("shell.status.waiting")
         } else if !chromecastHIDConnected || !chromecastBLEConnected {
-            statusText = L10n.text("正在连接语音 / 按键通道", "Connecting voice / buttons")
-        } else if !voiceStatus.isEmpty {
-            statusText = voiceStatus
+            statusText = L10n.tr("shell.status.connecting")
+        } else if !chromecastSession.presentation.detail.isEmpty {
+            // Resolve the current presentation when drawing, so changing the
+            // language does not need to restart or interrupt a voice session.
+            statusText = chromecastSession.presentation.detail
         } else {
-            statusText = L10n.text("已就绪", "Ready")
+            statusText = L10n.tr("shell.status.ready")
         }
         menuStatusSummary = "vRemoter · \(remoteName) · \(statusText)"
         updateMenuVoiceIndicator()
@@ -413,7 +403,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             renderedVoiceReception = receiving
             statusItem.button?.image = MenuBarStatusIcon.image(receivingVoice: receiving)
         }
-        let receipt = receiving ? L10n.text(" · 正在接收语音", " · Receiving voice audio") : ""
+        let receipt = receiving ? L10n.tr("shell.status.receiving") : ""
         let label = menuStatusSummary + receipt
         statusItem.button?.toolTip = label
         statusItem.button?.setAccessibilityLabel(label)
@@ -479,21 +469,50 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func selectSystemLanguage() {
-        setLanguageAndRestart(.system)
+        AppLanguage.selected = .system
     }
 
     @objc private func selectSimplifiedChinese() {
-        setLanguageAndRestart(.simplifiedChinese)
+        AppLanguage.selected = .simplifiedChinese
+    }
+
+    @objc private func selectTraditionalChinese() {
+        AppLanguage.selected = .traditionalChinese
     }
 
     @objc private func selectEnglish() {
-        setLanguageAndRestart(.english)
+        AppLanguage.selected = .english
     }
 
-    private func setLanguageAndRestart(_ language: AppLanguage) {
-        guard AppLanguage.selected != language else { return }
-        AppLanguage.selected = language
-        restartAppNow()
+    @objc private func languageDidChange() {
+        if let menu = statusItem?.menu { refreshLocalizedMenu(menu) }
+        refreshMenuState()
+        updateStatus()
+    }
+
+    private func localizedMenuItem(
+        _ key: String,
+        action: Selector?,
+        keyEquivalent: String
+    ) -> NSMenuItem {
+        let item = NSMenuItem(title: L10n.tr(key), action: action, keyEquivalent: keyEquivalent)
+        item.representedObject = key
+        return item
+    }
+
+    private func refreshLocalizedMenu(_ menu: NSMenu) {
+        // Update the existing menu in place, including an open submenu.
+        for item in menu.items {
+            if let key = item.representedObject as? String {
+                item.title = L10n.tr(key)
+            } else if let language = item.representedObject as? AppLanguage {
+                item.title = language.title
+            }
+            if let submenu = item.submenu {
+                submenu.title = item.title
+                refreshLocalizedMenu(submenu)
+            }
+        }
     }
 
     @objc private func stopMicrophone() {
@@ -534,16 +553,19 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         launchAtLoginItem?.state = LaunchAtLogin.isEnabled ? .on : .off
         loggingToggleItem?.state = Log.isEnabled ? .on : .off
         recordingToggleItem?.state = AppStorage.recordingEnabled ? .on : .off
+        for (language, item) in languageItems {
+            item.state = AppLanguage.selected == language ? .on : .off
+        }
         refreshSizeLabels()
     }
 
     private func refreshSizeLabels() {
-        logSizeItem?.title = L10n.text("占用", "Size")
+        logSizeItem?.title = L10n.tr("shell.storage.used")
             + " · \(AppStorage.formattedSize(Log.byteSize))"
         let recordingBytes = AppStorage.byteSize(
             of: AppStorage.recordingsDirectory
         )
-        recordingSizeItem?.title = L10n.text("占用", "Size")
+        recordingSizeItem?.title = L10n.tr("shell.storage.used")
             + " · \(AppStorage.formattedSize(recordingBytes))"
     }
 
@@ -551,10 +573,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         do {
             try LaunchAtLogin.setEnabled(!LaunchAtLogin.isEnabled)
         } catch {
-            headerLabel.title = L10n.text(
-                "状态 · 登录启动设置失败",
-                "Status · Launch-at-login failed"
-            )
+            headerLabel.title = L10n.tr("shell.status.login_failed")
         }
         refreshMenuState()
     }
@@ -603,6 +622,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        NotificationCenter.default.removeObserver(self, name: .appLanguageDidChange, object: nil)
         voiceReceptionTimer?.invalidate()
         voiceReceptionTimer = nil
         chromecastHID.stop()
@@ -615,6 +635,19 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
 }
 
 // MARK: - Entry
+
+// A read-only packaging probe. Do not initialize AppKit, preferences, Bluetooth,
+// audio, login items or permission requesters during this check.
+if CommandLine.arguments.contains("--localization-self-test") {
+    let failures = L10n.validateBundledResources()
+    for failure in failures { FileHandle.standardError.write(Data((failure + "\n").utf8)) }
+    if !failures.isEmpty { exit(1) }
+    for language in L10n.supportedLanguages {
+        print("\(language.rawValue): \(L10n.text("language.title", language: language))")
+    }
+    print("PASS: running executable loaded all three bundled language tables")
+    exit(0)
+}
 
 let app = NSApplication.shared
 let delegate = AppController()

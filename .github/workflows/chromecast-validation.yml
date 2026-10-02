@@ -12,6 +12,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Compile macOS application
         run: swift build
+      - name: Localization resource and source contracts
+        run: python3 Tools/check-localization.py
+      - name: Localization runtime regressions
+        run: bash Tools/test-localization.sh
+      - name: Verify SwiftPM localization resources
+        run: swift run vRemote --localization-self-test
       - name: Protocol regression tests
         run: zsh run-self-tests.sh
       - name: Chromecast model and voice regressions
@@ -35,5 +41,7 @@ jobs:
         run: zsh package-app.sh
       - name: Verify bundled notices and resources
         run: python3 Tools/check-app-bundle.py dist/build/vRemote.app
+      - name: Verify running packaged localization resources
+        run: dist/build/vRemote.app/Contents/MacOS/vRemote --localization-self-test
       - name: Whitespace check
         run: git diff --check

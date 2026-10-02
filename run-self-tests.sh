@@ -5,7 +5,9 @@ SCRIPT_DIR="${0:A:h}"
 OUTPUT="$SCRIPT_DIR/.build/vremote-self-test"
 
 mkdir -p "${OUTPUT:h}"
+cp -R "$SCRIPT_DIR/Sources/vRemote/Resources/"*.lproj "${OUTPUT:h}/"
 swiftc \
+  "$SCRIPT_DIR/Sources/vRemote/Localization.swift" \
   "$SCRIPT_DIR/Sources/vRemote/ATVV/BridgeError.swift" \
   "$SCRIPT_DIR/Sources/vRemote/ATVV/ADPCMDecoder.swift" \
   "$SCRIPT_DIR/Sources/vRemote/ATVV/ATVVProtocol.swift" \

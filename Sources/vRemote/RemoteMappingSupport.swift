@@ -10,7 +10,7 @@ enum SupportedRemoteID: String, CaseIterable, Identifiable, Codable {
 
     var title: String {
         switch self {
-        case .chromecast: "Chromecast Voice Remote"
+        case .chromecast: L10n.tr("support.remote.chromecast")
         }
     }
 
@@ -23,7 +23,12 @@ enum SupportedRemoteID: String, CaseIterable, Identifiable, Codable {
 
 struct RemoteButtonDefinition: Identifiable, Hashable {
     let id: String
-    let title: String
+    private let literalTitle: String
+    private let titleKey: String?
+    var title: String {
+        guard let titleKey else { return literalTitle }
+        return L10n.tr(titleKey)
+    }
     let symbol: String
     let defaultTarget: RemoteMappingTarget
     let voiceControlled: Bool
@@ -31,14 +36,16 @@ struct RemoteButtonDefinition: Identifiable, Hashable {
 
     init(
         id: String,
-        title: String,
+        title: String = "",
+        titleKey: String? = nil,
         symbol: String,
         defaultTarget: RemoteMappingTarget,
         voiceControlled: Bool = false,
         remappable: Bool = true
     ) {
         self.id = id
-        self.title = title
+        self.literalTitle = title
+        self.titleKey = titleKey
         self.symbol = symbol
         self.defaultTarget = defaultTarget
         self.voiceControlled = voiceControlled
@@ -51,23 +58,23 @@ enum RemoteProfiles {
     /// remain on disk without a corresponding remote model or execution path.
     static let activeRemotes: [SupportedRemoteID] = [.chromecast]
 
-    static let chromecastButtons: [RemoteButtonDefinition] = [
-        .init(id: "03", title: L10n.text("方向上", "Up"), symbol: "arrow.up", defaultTarget: .arrowUp),
-        .init(id: "04", title: L10n.text("方向下", "Down"), symbol: "arrow.down", defaultTarget: .arrowDown),
-        .init(id: "05", title: L10n.text("方向左", "Left"), symbol: "arrow.left", defaultTarget: .arrowLeft),
-        .init(id: "06", title: L10n.text("方向右", "Right"), symbol: "arrow.right", defaultTarget: .arrowRight),
-        .init(id: "07", title: L10n.text("确认", "Select"), symbol: "circle.inset.filled", defaultTarget: .returnKey),
-        .init(id: "0B", title: L10n.text("返回", "Back"), symbol: "chevron.backward", defaultTarget: .escape),
-        .init(id: "0A", title: "Home", symbol: "house", defaultTarget: .showDesktop),
+    static var chromecastButtons: [RemoteButtonDefinition] { [
+        .init(id: "03", titleKey: "support.button.up", symbol: "arrow.up", defaultTarget: .arrowUp),
+        .init(id: "04", titleKey: "support.button.down", symbol: "arrow.down", defaultTarget: .arrowDown),
+        .init(id: "05", titleKey: "support.button.left", symbol: "arrow.left", defaultTarget: .arrowLeft),
+        .init(id: "06", titleKey: "support.button.right", symbol: "arrow.right", defaultTarget: .arrowRight),
+        .init(id: "07", titleKey: "support.button.select", symbol: "circle.inset.filled", defaultTarget: .returnKey),
+        .init(id: "0B", titleKey: "support.button.back", symbol: "chevron.backward", defaultTarget: .escape),
+        .init(id: "0A", titleKey: "support.button.home", symbol: "house", defaultTarget: .showDesktop),
         .init(id: "0E", title: "YouTube", symbol: "play.rectangle", defaultTarget: .disabled),
-        .init(id: "voice", title: L10n.text("语音", "Voice"), symbol: "mic", defaultTarget: .doubaoVoice, voiceControlled: true),
-        .init(id: "08", title: L10n.text("静音", "Mute"), symbol: "speaker.slash", defaultTarget: .mute),
+        .init(id: "voice", titleKey: "support.button.voice", symbol: "mic", defaultTarget: .doubaoVoice, voiceControlled: true),
+        .init(id: "08", titleKey: "support.button.mute", symbol: "speaker.slash", defaultTarget: .mute),
         .init(id: "0F", title: "Netflix", symbol: "n.square", defaultTarget: .disabled),
-        .init(id: "01", title: L10n.text("电源", "Power"), symbol: "power", defaultTarget: .disabled),
-        .init(id: "11", title: L10n.text("信源", "Input"), symbol: "rectangle.on.rectangle", defaultTarget: .disabled),
-        .init(id: "0C", title: L10n.text("音量＋", "Volume Up"), symbol: "speaker.plus", defaultTarget: .volumeUp),
-        .init(id: "0D", title: L10n.text("音量－", "Volume Down"), symbol: "speaker.minus", defaultTarget: .volumeDown),
-    ]
+        .init(id: "01", titleKey: "support.button.power", symbol: "power", defaultTarget: .disabled),
+        .init(id: "11", titleKey: "support.button.input", symbol: "rectangle.on.rectangle", defaultTarget: .disabled),
+        .init(id: "0C", titleKey: "support.button.volumeUp", symbol: "speaker.plus", defaultTarget: .volumeUp),
+        .init(id: "0D", titleKey: "support.button.volumeDown", symbol: "speaker.minus", defaultTarget: .volumeDown),
+    ] }
 
     static func buttons(for remote: SupportedRemoteID) -> [RemoteButtonDefinition] {
         switch remote {
@@ -113,37 +120,37 @@ enum RemoteMappingTarget: String, CaseIterable, Identifiable, Codable, Hashable 
 
     var title: String {
         switch self {
-        case .disabled: L10n.text("禁用", "Disabled")
-        case .doubaoVoice: L10n.text("豆包语音输入", "Doubao Voice Input")
-        case .arrowUp: L10n.text("方向上", "Up Arrow")
-        case .arrowDown: L10n.text("方向下", "Down Arrow")
-        case .arrowLeft: L10n.text("方向左", "Left Arrow")
-        case .arrowRight: L10n.text("方向右", "Right Arrow")
-        case .returnKey: "Return"
-        case .escape: "Escape"
-        case .deleteBackward: "Delete"
-        case .tab: "Tab"
-        case .space: L10n.text("空格", "Space")
-        case .home: "Home"
-        case .end: "End"
-        case .pageUp: "Page Up"
-        case .pageDown: "Page Down"
-        case .volumeUp: L10n.text("系统音量＋", "System Volume Up")
-        case .volumeDown: L10n.text("系统音量－", "System Volume Down")
-        case .mute: L10n.text("系统静音", "System Mute")
-        case .playPause: L10n.text("播放/暂停", "Play / Pause")
-        case .showDesktop: L10n.text("显示桌面", "Show Desktop")
-        case .spotlight: "Spotlight (⌘Space)"
-        case .switchApplications: L10n.text("切换应用 (⌘Tab)", "Switch applications (⌘Tab)")
-        case .scrollUp: L10n.text("向上滚动", "Scroll up")
-        case .scrollDown: L10n.text("向下滚动", "Scroll down")
-        case .scrollLeft: L10n.text("向左滚动", "Scroll left")
-        case .scrollRight: L10n.text("向右滚动", "Scroll right")
-        case .commandC: L10n.text("复制 (⌘C)", "Copy (⌘C)")
-        case .commandV: L10n.text("粘贴 (⌘V)", "Paste (⌘V)")
-        case .commandZ: L10n.text("撤销 (⌘Z)", "Undo (⌘Z)")
-        case .custom: L10n.text("录制任意按键…", "Record a key…")
-        case .launchApplication: L10n.text("打开应用…", "Open application…")
+        case .disabled: L10n.tr("support.action.disabled")
+        case .doubaoVoice: L10n.tr("support.action.voice")
+        case .arrowUp: L10n.tr("support.action.up")
+        case .arrowDown: L10n.tr("support.action.down")
+        case .arrowLeft: L10n.tr("support.action.left")
+        case .arrowRight: L10n.tr("support.action.right")
+        case .returnKey: L10n.tr("support.action.return")
+        case .escape: L10n.tr("support.action.escape")
+        case .deleteBackward: L10n.tr("support.action.delete")
+        case .tab: L10n.tr("support.action.tab")
+        case .space: L10n.tr("support.action.space")
+        case .home: L10n.tr("support.action.home")
+        case .end: L10n.tr("support.action.end")
+        case .pageUp: L10n.tr("support.action.pageUp")
+        case .pageDown: L10n.tr("support.action.pageDown")
+        case .volumeUp: L10n.tr("support.action.volumeUp")
+        case .volumeDown: L10n.tr("support.action.volumeDown")
+        case .mute: L10n.tr("support.action.mute")
+        case .playPause: L10n.tr("support.action.playPause")
+        case .showDesktop: L10n.tr("support.action.showDesktop")
+        case .spotlight: L10n.tr("support.action.spotlight")
+        case .switchApplications: L10n.tr("support.action.switchApps")
+        case .scrollUp: L10n.tr("support.action.scrollUp")
+        case .scrollDown: L10n.tr("support.action.scrollDown")
+        case .scrollLeft: L10n.tr("support.action.scrollLeft")
+        case .scrollRight: L10n.tr("support.action.scrollRight")
+        case .commandC: L10n.tr("support.action.copy")
+        case .commandV: L10n.tr("support.action.paste")
+        case .commandZ: L10n.tr("support.action.undo")
+        case .custom: L10n.tr("support.action.custom")
+        case .launchApplication: L10n.tr("support.action.openApp")
         }
     }
 
@@ -275,6 +282,34 @@ struct RemoteCustomShortcut: Codable, Hashable {
     let flags: UInt64
     let label: String
 
+    /// Localize display-only names without changing saved shortcuts or their
+    /// physical key codes. Letter labels preserve the captured keyboard layout.
+    var displayLabel: String {
+        let modifiers = CGEventFlags(rawValue: flags)
+        var prefix = ""
+        if modifiers.contains(.maskControl) { prefix += "⌃" }
+        if modifiers.contains(.maskAlternate) { prefix += "⌥" }
+        if modifiers.contains(.maskShift) { prefix += "⇧" }
+        if modifiers.contains(.maskCommand) { prefix += "⌘" }
+        let special: [UInt16: RemoteMappingTarget] = [
+            0x24: .returnKey, 0x30: .tab, 0x31: .space, 0x33: .deleteBackward,
+            0x35: .escape, 0x73: .home, 0x77: .end, 0x74: .pageUp, 0x79: .pageDown
+        ]
+        if let target = special[keyCode] { return prefix + target.title }
+        let symbols: [UInt16: String] = [
+            0x7B: "←", 0x7C: "→", 0x7D: "↓", 0x7E: "↑",
+            0x7A: "F1", 0x78: "F2", 0x63: "F3", 0x76: "F4",
+            0x60: "F5", 0x61: "F6", 0x62: "F7", 0x64: "F8",
+            0x65: "F9", 0x6D: "F10", 0x67: "F11", 0x6F: "F12"
+        ]
+        if let symbol = symbols[keyCode] { return prefix + symbol }
+        let capturedKey = String(label.drop(while: { "⌃⌥⇧⌘".contains($0) }))
+        if capturedKey.isEmpty || capturedKey.hasPrefix("Key 0x") {
+            return prefix + L10n.tr("support.shortcut.unknownKey", String(format: "0x%02X", keyCode))
+        }
+        return prefix + capturedKey
+    }
+
     func post(isDown: Bool, isRepeat: Bool = false) {
         let source = CGEventSource(stateID: .hidSystemState)
         guard let event = CGEvent(
@@ -292,9 +327,9 @@ struct RemoteCustomShortcut: Codable, Hashable {
 extension RemoteButtonGesture {
     var title: String {
         switch self {
-        case .click: L10n.text("单击", "Click")
-        case .doubleClick: L10n.text("双击", "Double click")
-        case .longPress: L10n.text("长按", "Long press")
+        case .click: L10n.tr("support.gesture.click")
+        case .doubleClick: L10n.tr("support.gesture.doubleClick")
+        case .longPress: L10n.tr("support.gesture.longPress")
         }
     }
 }
@@ -327,6 +362,17 @@ extension RemoteApplicationShortcut {
     }
 }
 
+enum RemoteMappingActionError {
+    case applicationMissing, applicationLaunchFailed
+
+    var message: String {
+        switch self {
+        case .applicationMissing: L10n.tr("support.mapping.appMissing")
+        case .applicationLaunchFailed: L10n.tr("support.mapping.appLaunchFailed")
+        }
+    }
+}
+
 /// An immutable press-time snapshot prevents editing a mapping mid-hold from
 /// releasing a different key than the one that was originally pressed.
 struct RemoteMappingAction {
@@ -350,18 +396,18 @@ struct RemoteMappingAction {
     }
 
     var title: String {
-        if target == .custom, let shortcut { return shortcut.label }
+        if target == .custom, let shortcut { return shortcut.displayLabel }
         if target == .launchApplication, let application { return application.name }
         return target.title
     }
 
-    func post(isDown: Bool, isRepeat: Bool = false, onError: @escaping (String) -> Void = { _ in }) {
+    func post(isDown: Bool, isRepeat: Bool = false, onError: @escaping (RemoteMappingActionError) -> Void = { _ in }) {
         if target == .custom {
             shortcut?.post(isDown: isDown, isRepeat: isRepeat)
         } else if target == .launchApplication {
             guard isDown, !isRepeat else { return }
             guard let application, let url = application.resolvedURL else {
-                onError(L10n.text("找不到映射的应用，请重新选择。", "Mapped application is unavailable. Choose it again."))
+                onError(.applicationMissing)
                 return
             }
             NSWorkspace.shared.openApplication(
@@ -370,7 +416,8 @@ struct RemoteMappingAction {
             ) { _, error in
                 if let error {
                     DispatchQueue.main.async {
-                        onError(L10n.text("无法打开应用：", "Could not open application: ") + error.localizedDescription)
+                        print("[CAST-MAP] Could not open application: \(error.localizedDescription)")
+                        onError(.applicationLaunchFailed)
                     }
                 }
             }
@@ -385,7 +432,8 @@ final class RemoteMappingStore: ObservableObject {
     static let didChangeNotification = Notification.Name("vRemote.remoteMappingDidChange")
 
     @Published private(set) var revision = 0
-    @Published private(set) var lastActionError: String?
+    @Published private var lastActionFailure: RemoteMappingActionError?
+    var lastActionError: String? { lastActionFailure?.message }
     private let defaults: UserDefaults
     private let prefix = "remoteMapping."
     private let enabledPrefix = "remoteMappingEnabled."
@@ -428,7 +476,7 @@ final class RemoteMappingStore: ObservableObject {
 
     private func changed() {
         revision += 1
-        lastActionError = nil
+        lastActionFailure = nil
         NotificationCenter.default.post(name: Self.didChangeNotification, object: self)
     }
 
@@ -528,14 +576,14 @@ final class RemoteMappingStore: ObservableObject {
         let configuration = gestureConfiguration(for: button, remote: remote)
         guard holdRepeats(for: button, remote: remote),
               configuration.hasDoubleClick || configuration.hasLongPress else { return nil }
-        return L10n.text("已暂停单击按住连发：双击或长按映射优先；长按滚动仍会持续。", "Click hold-repeat is suspended while double-click or long-press mappings are assigned; long-press scrolling remains continuous.")
+        return L10n.tr("support.mapping.repeatConflict")
     }
 
     func post(action: RemoteMappingAction, isDown: Bool, isRepeat: Bool = false) {
-        if isDown, !isRepeat { lastActionError = nil }
+        if isDown, !isRepeat { lastActionFailure = nil }
         action.post(isDown: isDown, isRepeat: isRepeat) { [weak self] error in
-            self?.lastActionError = error
-            print("[CAST-MAP] " + error)
+            self?.lastActionFailure = error
+            print("[CAST-MAP] " + error.message)
         }
     }
 

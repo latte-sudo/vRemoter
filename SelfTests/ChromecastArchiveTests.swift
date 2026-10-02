@@ -1,7 +1,6 @@
 import AppKit
 import Foundation
 
-enum L10n { static func text(_ chinese: String, _ english: String) -> String { english } }
 enum Key { static let syntheticMarker: Int64 = 1 }
 enum InputTriggerKey: String, Codable { case option, command, control, shift, function }
 enum AppStorage {
@@ -34,6 +33,13 @@ struct ChromecastArchiveTests {
         for appearance in AppAppearance.allCases {
             _ = try ChromecastSettingsArchive.validate(archive([AppAppearance.key: appearance.rawValue]))
         }
+        for language in AppLanguage.allCases {
+            _ = try ChromecastSettingsArchive.validate(archive([AppLanguage.key: language.rawValue]))
+        }
+        try rejects([AppLanguage.key: "zh"])
+        try rejects([AppLanguage.key: "fr"])
+        try rejects([AppLanguage.key: true])
+        try rejects([AppLanguage.key: Data()])
         try rejects([AppAppearance.key: "unknown"])
         try rejects([AppAppearance.key: true])
         try rejects([AppAppearance.key: Data()])
@@ -46,7 +52,12 @@ struct ChromecastArchiveTests {
             try rejects([RemoteDisplayName.key: invalid])
         }
         let original = ChromecastSettingsArchive.snapshot()
-        defer { ChromecastSettingsArchive.restore(original) }
+        let originalLanguage = UserDefaults.standard.object(forKey: AppLanguage.key)
+        defer {
+            ChromecastSettingsArchive.restore(original)
+            if let originalLanguage { UserDefaults.standard.set(originalLanguage, forKey: AppLanguage.key) }
+            else { UserDefaults.standard.removeObject(forKey: AppLanguage.key) }
+        }
         // Older Chromecast archives can include retired mapping fields. They
         // import only current settings, never recreate an X6 model or overwrite
         // historical preferences on disk, including opaque/obsolete payloads.
@@ -107,6 +118,18 @@ struct ChromecastArchiveTests {
         let tooManyRetired: [String: Any] = Dictionary(uniqueKeysWithValues: (0..<300).map { ("remoteMapping.x6.key\($0)", "disabled") })
         try rejects(tooManyRetired)
         try rejects(["remoteCustomMapping.x6.k52": Data(repeating: 0, count: 1_000_000)])
+        AppLanguage.selected = .traditionalChinese
+        let languageArchive = try ChromecastSettingsArchive.validate(ChromecastSettingsArchive.exportData())
+        precondition(languageArchive[AppLanguage.key] as? String == "zh-Hant")
+        ChromecastSettingsArchive.restore([:])
+        precondition(AppLanguage.selected == .traditionalChinese, "reset preserves the current readable language")
+        ChromecastSettingsArchive.restore(try ChromecastSettingsArchive.validate(archive([AppAppearance.key: "dark"])))
+        precondition(AppLanguage.selected == .traditionalChinese, "legacy backup has no language preference to replace")
+        AppLanguage.selected = .english
+        ChromecastSettingsArchive.restore(languageArchive)
+        precondition(AppLanguage.selected == .traditionalChinese, "explicit saved language restores immediately")
+        try rejects([AppLanguage.key: "unsupported"])
+        precondition(AppLanguage.selected == .traditionalChinese, "invalid backup never changes language")
         DockVisibilityPreference.setVisible(true)
         AppAppearance.set(.dark)
         try RemoteDisplayName.set("客厅遥控器 🎤")

@@ -48,7 +48,7 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
     private var outputSampleRate = AudioPipe.defaultOutputSampleRate
     private var routeGeneration: UInt64 = 0
     private var outputRoute: AudioOutputRoute?
-    private var routeError: String?
+    private var routeError: AudioRouteIssue?
     private var deviceListListener: AudioObjectPropertyListenerBlock?
     private var boundRouteListener: AudioObjectPropertyListenerBlock?
     private var boundRouteProperties: [(AudioObjectID, AudioObjectPropertyAddress)] = []
@@ -254,17 +254,17 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
 
         guard let uid else {
             guard unbindOutputDevice() else { return }
-            updateRouteError("未选择虚拟输出设备")
+            updateRouteError(.noSelection)
             return
         }
         guard let selected = discovered.first(where: { $0.route.uid == uid }) else {
             guard unbindOutputDevice() else { return }
-            updateRouteError("已保存的输出设备不可用；请连接设备后刷新，或重新选择")
+            updateRouteError(.savedDeviceUnavailable)
             return
         }
         guard selected.route.isSupported else {
             guard unbindOutputDevice() else { return }
-            updateRouteError(selected.route.unavailableReason)
+            updateRouteError(selected.route.unavailableIssue)
             return
         }
         if currentID == selected.id, currentRoute == selected.route {
@@ -311,7 +311,7 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
         let route = outputRoute
         stateLock.unlock()
         guard isOutputDeviceAvailable, let deviceID, let route else {
-            updateRouteError("测试音未播放：请先选择可用的虚拟输出设备")
+            updateRouteError(.testToneNeedsDevice)
             return false
         }
         let tone = AudioRouteConfiguration.testTone(sampleRate: route.sampleRate)
@@ -346,17 +346,18 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
         defer { stateLock.unlock() }
         var lines: [String] = []
         if let route = outputRoute {
-            lines.append("输出：\(route.name) · \(Int(route.sampleRate)) Hz · \(route.channelCount) 声道")
-            lines.append("UID：\(route.uid)")
-            lines.append(outputIOProcID == nil ? "输出资源：空闲（会话开启时启动）" : "输出资源：已持有")
+            lines.append(L10n.tr("support.audio.diagnostic.output", route.name, Int(route.sampleRate), route.channelCount))
+            lines.append(L10n.tr("support.audio.diagnostic.deviceID", route.uid))
+            lines.append(outputIOProcID == nil ? L10n.tr("support.audio.diagnostic.idle") : L10n.tr("support.audio.diagnostic.active"))
         } else {
-            lines.append("输出未就绪")
-            if let selectedUID = selectedUID { lines.append("已选 UID：\(selectedUID)") }
+            lines.append(L10n.tr("support.audio.diagnostic.notReady"))
+            if let selectedUID = selectedUID { lines.append(L10n.tr("support.audio.diagnostic.selectedID", selectedUID)) }
         }
-        lines.append(String(format: "遥控器增益：%.1f× · Mac 麦克风：%@", gain, macInputEnabled ? "开" : "关"))
-        if pendingTestToneIndex < pendingTestTone.count { lines.append("正在发送 1 秒测试音") }
-        if let routeError { lines.append(routeError) }
-        lines.append("请在豆包中手动选择同一虚拟设备；系统默认输入保持不变")
+        lines.append(L10n.tr("support.audio.diagnostic.gainAndMac", String(format: "%.1f", gain),
+            L10n.tr(macInputEnabled ? "support.audio.enabled" : "support.audio.disabled")))
+        if pendingTestToneIndex < pendingTestTone.count { lines.append(L10n.tr("support.audio.diagnostic.testSound")) }
+        if let routeError { lines.append(routeError.localizedDiagnostics) }
+        lines.append(L10n.tr("support.audio.diagnostic.matchInput"))
         return lines.joined(separator: "\n")
     }
 
@@ -657,7 +658,7 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
         let hasUnreleasedOutput = outputIOProcID != nil
         stateLock.unlock()
         guard !hasUnreleasedOutput else {
-            updateRouteError("输出清理未完成；请重试关闭会话")
+            updateRouteError(.cleanupIncomplete)
             return false
         }
         var ioProcID: AudioDeviceIOProcID?
@@ -669,7 +670,7 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
             self?.render(outputData)
         }
         guard createStatus == noErr, let ioProcID else {
-            updateRouteError("创建输出失败：OSStatus=\(createStatus)")
+            updateRouteError(.creationFailed(createStatus))
             return false
         }
 
@@ -686,7 +687,7 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
                 outputIOProcID = ioProcID
                 stateLock.unlock()
             }
-            updateRouteError("启动输出失败：OSStatus=\(startStatus)，清理=\(destroyStatus)")
+            updateRouteError(.startFailed(start: startStatus, cleanup: destroyStatus))
             return false
         }
 
@@ -724,11 +725,11 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
                 stateLock.unlock()
             }
             if stopStatus != noErr || destroyStatus != noErr {
-                updateRouteError("输出清理：停止=\(stopStatus)，销毁=\(destroyStatus)")
+                updateRouteError(.cleanupFailed(stop: stopStatus, cleanup: destroyStatus))
             }
         }
         let captureStopped = setMacCaptureEnabled(false)
-        if !captureStopped { updateRouteError("Mac 麦克风采集尚未停止；请重试关闭会话") }
+        if !captureStopped { updateRouteError(.macCaptureStillRunning) }
         released = released && captureStopped
         if wasActive {
             print("[AUDIO] 语音输出关闭")
@@ -756,11 +757,11 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
         DispatchQueue.main.async { [weak self] in self?.onConfigurationChanged?() }
     }
 
-    private func updateRouteError(_ message: String?) {
+    private func updateRouteError(_ message: AudioRouteIssue?) {
         stateLock.lock()
         routeError = message
         stateLock.unlock()
-        if let message { print("[AUDIO] \(message)") }
+        if let message { print("[AUDIO] \(message.diagnosticDescription)") }
         notifyConfigurationChanged()
     }
 
@@ -1060,16 +1061,16 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
             guard !streams.isEmpty else { continue }
             var rate: Double = 0
             var channels: UInt32 = 0
-            var unavailable: String?
+            var unavailable: AudioRouteIssue?
             if integerProperty(deviceID, selector: kAudioDevicePropertyDeviceIsAlive) == 0 {
-                unavailable = "设备当前离线"
+                unavailable = .deviceOffline
             }
             for streamID in streams {
                 var format = AudioStreamBasicDescription()
                 var address = propertyAddress(kAudioStreamPropertyVirtualFormat)
                 var size = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
                 guard AudioObjectGetPropertyData(streamID, &address, 0, nil, &size, &format) == noErr else {
-                    unavailable = "无法读取输出格式"
+                    unavailable = .formatUnreadable
                     continue
                 }
                 let nonInterleaved = format.mFormatFlags & kAudioFormatFlagIsNonInterleaved != 0
@@ -1085,21 +1086,21 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
                       format.mChannelsPerFrame <= 32,
                       format.mSampleRate.isFinite,
                       (8_000...192_000).contains(format.mSampleRate) else {
-                    unavailable = "暂不支持此输出格式（需 32-bit Float PCM，8–192 kHz）"
+                    unavailable = .unsupportedFormat
                     continue
                 }
                 if rate != 0, abs(rate - format.mSampleRate) >= 1 {
-                    unavailable = "输出流采样率不一致"
+                    unavailable = .sampleRateMismatch
                 }
                 rate = format.mSampleRate
                 channels += format.mChannelsPerFrame
             }
             if channels == 0 || channels > 32 {
-                unavailable = unavailable ?? "暂不支持此输出声道配置"
+                unavailable = unavailable ?? .unsupportedChannels
             }
             routes.append((deviceID, AudioOutputRoute(
                 uid: uid, name: name, sampleRate: rate,
-                channelCount: channels, unavailableReason: unavailable
+                channelCount: channels, unavailableIssue: unavailable
             )))
         }
         return routes.sorted {

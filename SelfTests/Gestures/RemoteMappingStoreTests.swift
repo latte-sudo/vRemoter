@@ -2,9 +2,7 @@
 import AppKit
 import Foundation
 
-enum L10n {
-    static func text(_ chinese: String, _ english: String) -> String { english }
-}
+
 enum Key { static let syntheticMarker: Int64 = 0x56524D54 }
 
 @main

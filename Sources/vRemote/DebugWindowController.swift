@@ -25,11 +25,11 @@ enum PermissionKind: String, Identifiable, CaseIterable {
 
     var title: String {
         switch self {
-        case .doubaoInput: L10n.text("豆包麦克风设置", "Doubao Microphone Setup")
-        case .microphone: L10n.text("麦克风权限", "Microphone Permission")
-        case .accessibility: L10n.text("辅助功能权限", "Accessibility Permission")
-        case .inputMonitoring: L10n.text("输入监控权限", "Input Monitoring Permission")
-        case .bluetooth: L10n.text("蓝牙权限", "Bluetooth Permission")
+        case .doubaoInput: L10n.tr("permission.title.doubao")
+        case .microphone: L10n.tr("permission.title.microphone")
+        case .accessibility: L10n.tr("permission.title.accessibility")
+        case .inputMonitoring: L10n.tr("permission.title.input_monitoring")
+        case .bluetooth: L10n.tr("permission.title.bluetooth")
         }
     }
 
@@ -67,66 +67,30 @@ enum PermissionKind: String, Identifiable, CaseIterable {
         switch self {
         case .doubaoInput:
             return [
-                L10n.text(
-                    "首次直接打开豆包设置时，macOS 可能询问“App 管理”；请允许 vRemote 启动豆包输入法的设置组件。",
-                    "The first direct launch may ask for App Management. Allow vRemote to open Doubao's settings component."
-                ),
-                L10n.text(
-                    "打开菜单栏输入法菜单，点击“豆包输入法设置”。",
-                    "Open the input menu in the menu bar and choose Doubao Input Method Settings."
-                ),
-                L10n.text(
-                    "进入“语音输入”，找到“麦克风选择”，点击当前选项。",
-                    "Open Voice Input, locate Microphone Selection, and click the current option."
-                ),
-                L10n.text(
-                    "选择“自动检测”或“vRemoteDr 2ch”。如果自动检测没有声音，请直接选择 vRemoteDr 2ch。",
-                    "Choose Automatic Detection or vRemoteDr 2ch. If automatic detection is silent, select vRemoteDr 2ch directly."
-                )
+                L10n.tr("permission.doubao.app_management"),
+                L10n.tr("permission.doubao.open_menu"),
+                L10n.tr("permission.doubao.choose_input"),
+                L10n.tr("permission.doubao.select_microphone")
             ]
         case .microphone:
             return [
-                L10n.text(
-                    "系统设置会打开到“隐私与安全性 → 麦克风”。",
-                    "System Settings will open Privacy & Security > Microphone."
-                ),
-                L10n.text(
-                    "找到 vRemote（或 vRemoter），打开右侧开关；若已经打开，关闭后重新打开一次。",
-                    "Find vRemote or vRemoter and enable it. If already enabled, turn it off and on once."
-                )
+                L10n.tr("permission.microphone.open_settings"),
+                L10n.tr("permission.microphone.enable")
             ]
         case .accessibility:
             return [
-                L10n.text(
-                    "系统设置会打开到“隐私与安全性 → 辅助功能”。",
-                    "System Settings will open Privacy & Security > Accessibility."
-                ),
-                L10n.text(
-                    "找到 vRemote（或 vRemoter）并打开开关。列表中没有时，点加号选择应用。",
-                    "Enable vRemote or vRemoter. If it is missing, use the plus button to add the app."
-                )
+                L10n.tr("permission.accessibility.open_settings"),
+                L10n.tr("permission.accessibility.enable")
             ]
         case .inputMonitoring:
             return [
-                L10n.text(
-                    "系统设置会打开到“隐私与安全性 → 输入监控”。",
-                    "System Settings will open Privacy & Security > Input Monitoring."
-                ),
-                L10n.text(
-                    "找到 vRemote（或 vRemoter）并打开开关。macOS 提示重新启动时允许它重新打开。",
-                    "Enable vRemote or vRemoter, then allow macOS to relaunch it when prompted."
-                )
+                L10n.tr("permission.input_monitoring.open_settings"),
+                L10n.tr("permission.input_monitoring.enable")
             ]
         case .bluetooth:
             return [
-                L10n.text(
-                    "系统设置会打开到“隐私与安全性 → 蓝牙”。",
-                    "System Settings will open Privacy & Security > Bluetooth."
-                ),
-                L10n.text(
-                    "找到 vRemote（或 vRemoter）并打开开关，然后返回应用等待遥控器重新连接。",
-                    "Enable vRemote or vRemoter, then return to the app and wait for the remote to reconnect."
-                )
+                L10n.tr("permission.bluetooth.open_settings"),
+                L10n.tr("permission.bluetooth.enable")
             ]
         }
     }
@@ -208,7 +172,7 @@ enum ConsoleModal: Identifiable {
 
 @MainActor
 final class ConsoleViewModel: ObservableObject {
-    @Published var status = "启动中"
+    @Published var status = L10n.tr("shell.status.starting")
     @Published private(set) var remoteDisplayName = RemoteDisplayName.displayName()
     var onRemoteDisplayNameChanged: (() -> Void)?
     @Published var hidConnected = false
@@ -232,14 +196,40 @@ final class ConsoleViewModel: ObservableObject {
     @Published var accessibilityGranted = false
     @Published var inputMonitoringGranted = false
     @Published var bluetoothGranted = false
-    @Published var bluetoothPermissionStatus = "待确认"
+    @Published private var bluetoothPermissionStatusKey = "permission.status.pending"
+    var bluetoothPermissionStatus: String { L10n.tr(bluetoothPermissionStatusKey) }
     @Published var permissionCheckedAt: Date?
-    var accessibilityPermissionStatus: String { accessibilityGranted ? "已授权" : "未授权" }
-    var inputMonitoringPermissionStatus: String { inputMonitoringGranted ? "已授权" : "未授权" }
+    var accessibilityPermissionStatus: String {
+        L10n.tr(accessibilityGranted ? "permission.status.granted" : "permission.status.denied")
+    }
+    var inputMonitoringPermissionStatus: String {
+        L10n.tr(inputMonitoringGranted ? "permission.status.granted" : "permission.status.denied")
+    }
     @Published var chromecastConnected = false
     @Published var inputTriggerKey = AppStorage.inputTriggerKey
     @Published var activeModal: ConsoleModal?
     private let permissionRequester = MacPermissionRequester()
+    private struct PermissionFeedback {
+        let kind: PermissionKind
+        let result: PermissionRequestResult?
+    }
+    @Published private var permissionFeedback: PermissionFeedback?
+
+    /// Preserve the outcome, and translate it when the view renders. Changing
+    /// languages must not request permission again or clear useful feedback.
+    var permissionRequestMessage: String {
+        guard let feedback = permissionFeedback else { return "" }
+        guard let result = feedback.result else { return L10n.tr("permission.request.not_needed") }
+        let key: String
+        switch result {
+        case .alreadyGranted: key = "permission.request.granted"
+        case .requested: key = "permission.request.sent"
+        case .openSettings: key = "permission.request.settings"
+        case .restricted: key = "permission.request.restricted"
+        case .unavailable: key = "permission.request.unknown"
+        }
+        return L10n.tr(key, feedback.kind.title)
+    }
 
     var onStopMicrophone: (() -> Void)?
     var onRestartApp: (() -> Void)?
@@ -276,7 +266,7 @@ final class ConsoleViewModel: ObservableObject {
             accessibilityGranted = false
             inputMonitoringGranted = false
             bluetoothGranted = false
-            bluetoothPermissionStatus = "待确认（演示）"
+            bluetoothPermissionStatusKey = "permission.status.demo"
             return
         }
         microphoneGranted = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
@@ -284,48 +274,28 @@ final class ConsoleViewModel: ObservableObject {
         inputMonitoringGranted = CGPreflightListenEventAccess()
         if #available(macOS 11.0, *) {
             switch CBManager.authorization {
-            case .allowedAlways: bluetoothGranted = true; bluetoothPermissionStatus = "已授权"
-            case .denied: bluetoothGranted = false; bluetoothPermissionStatus = "未授权"
-            case .notDetermined: bluetoothGranted = false; bluetoothPermissionStatus = "待确认"
-            case .restricted: bluetoothGranted = false; bluetoothPermissionStatus = "受系统限制"
-            @unknown default: bluetoothGranted = false; bluetoothPermissionStatus = "未知状态"
+            case .allowedAlways: bluetoothGranted = true; bluetoothPermissionStatusKey = "permission.status.granted"
+            case .denied: bluetoothGranted = false; bluetoothPermissionStatusKey = "permission.status.denied"
+            case .notDetermined: bluetoothGranted = false; bluetoothPermissionStatusKey = "permission.status.pending"
+            case .restricted: bluetoothGranted = false; bluetoothPermissionStatusKey = "permission.status.restricted"
+            @unknown default: bluetoothGranted = false; bluetoothPermissionStatusKey = "permission.status.unknown"
             }
         } else {
             bluetoothGranted = true
-            bluetoothPermissionStatus = "无需单独授权"
+            bluetoothPermissionStatusKey = "permission.status.not_required"
         }
     }
 
+    @discardableResult
     func requestPermission(for kind: PermissionKind) -> String {
         guard let permission = kind.requestablePermission else {
-            return L10n.text("当前版本无需为此功能申请权限。", "This release does not need to request this permission.")
+            permissionFeedback = PermissionFeedback(kind: kind, result: nil)
+            return permissionRequestMessage
         }
         let result = permissionRequester.request(permission)
+        permissionFeedback = PermissionFeedback(kind: kind, result: result)
         refreshPermissions()
-        switch result {
-        case .alreadyGranted:
-            return L10n.text("\(kind.title)：已授权。", "\(kind.title): already authorized.")
-        case .requested:
-            return L10n.text(
-                "\(kind.title)：已向系统发起申请。请完成系统提示；若没有弹窗或此前已拒绝，请点“打开设置”手动开启，再重新检查。",
-                "\(kind.title): requested from macOS. Complete the system prompt. If no prompt appears or access was previously denied, use Open Settings, enable access, then check again."
-            )
-        case .openSettings:
-            return L10n.text(
-                "\(kind.title)：已拒绝或本次运行已申请。请完成仍在等待的系统提示，或点“打开设置”手动开启；重复点击不会重复申请。",
-                "\(kind.title): denied or already requested in this session. Complete any pending system prompt or use Open Settings to enable access. Repeated clicks do not request again."
-            )
-        case .restricted:
-            return L10n.text(
-                "\(kind.title)：受到系统策略限制，无法通过再次申请解除。请检查系统设置或联系设备管理员。",
-                "\(kind.title): restricted by system policy. Another request cannot remove the restriction. Check System Settings or contact your device administrator."
-            )
-        case .unavailable:
-            return L10n.text(
-                "\(kind.title)：系统返回未知状态，请打开设置检查。",
-                "\(kind.title): macOS returned an unknown state. Open Settings to check."
-            )
-        }
+        return permissionRequestMessage
     }
 
     func openSettings(for kind: PermissionKind) {
@@ -379,7 +349,7 @@ final class DebugWindowController: NSWindowController, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = L10n.text("vRemoter 控制台", "vRemoter Console")
+        window.title = L10n.tr("shell.window.title")
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
@@ -390,6 +360,12 @@ final class DebugWindowController: NSWindowController, NSWindowDelegate {
         window.minSize = NSSize(width: 1080, height: 720)
         super.init(window: window)
         window.delegate = self
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(languageDidChange),
+            name: .appLanguageDidChange,
+            object: nil
+        )
 
         model.onReconnectInputs = { [weak self] in self?.onReconnectInputs?() }
         model.onRemoteDisplayNameChanged = { [weak self] in self?.onRemoteDisplayNameChanged?() }
@@ -416,6 +392,16 @@ final class DebugWindowController: NSWindowController, NSWindowDelegate {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self, name: .appLanguageDidChange, object: nil)
+    }
+
+    @objc private func languageDidChange() {
+        window?.title = L10n.tr("shell.window.title")
+        model.refreshRemoteDisplayName()
+        model.objectWillChange.send()
     }
 
     func show() {
@@ -499,6 +485,7 @@ final class DebugWindowController: NSWindowController, NSWindowDelegate {
 
 /// Permission help shared by the native console and onboarding flow.
 struct ConsoleModalContent: View {
+    @ObservedObject private var languageStore = LanguageStore.shared
     @ObservedObject var model: ConsoleViewModel
     let modal: ConsoleModal
 
@@ -515,7 +502,8 @@ struct ConsoleModalContent: View {
 }
 
 struct KeyboardShortcutCaptureView: View {
-    let buttonTitle: String
+    @ObservedObject private var languageStore = LanguageStore.shared
+    let buttonTitle: () -> String
     let onCancel: () -> Void
     let onSave: (RemoteCustomShortcut) -> Void
     @State private var captured: RemoteCustomShortcut?
@@ -523,12 +511,9 @@ struct KeyboardShortcutCaptureView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 5) {
-                Text(L10n.text("录制键盘按键", "Record Keyboard Key"))
+                Text(L10n.tr("shortcut.capture.title"))
                     .font(.system(size: 20, weight: .semibold))
-                Text(L10n.text(
-                    "为“\(buttonTitle)”按下一个按键或组合键。",
-                    "Press a key or shortcut for “\(buttonTitle)”."
-                ))
+                Text(L10n.tr("shortcut.capture.instruction", buttonTitle()))
                     .font(.system(size: 13))
                     .foregroundStyle(ConsoleTheme.secondary)
             }
@@ -546,10 +531,10 @@ struct KeyboardShortcutCaptureView: View {
             )
             .overlay {
                 VStack(spacing: 5) {
-                    Text(captured?.label ?? L10n.text("现在按下键盘按键", "Press a key now"))
+                    Text(captured?.displayLabel ?? L10n.tr("shortcut.capture.waiting"))
                         .font(.system(size: 18, weight: .semibold, design: .rounded))
                         .foregroundStyle(captured == nil ? ConsoleTheme.secondary : ConsoleTheme.text)
-                    Text(L10n.text("支持 Command / Option / Control / Shift 组合", "Command / Option / Control / Shift are supported"))
+                    Text(L10n.tr("shortcut.capture.modifiers"))
                         .font(.system(size: 10.5))
                         .foregroundStyle(ConsoleTheme.tertiary)
                 }
@@ -557,9 +542,9 @@ struct KeyboardShortcutCaptureView: View {
             }
 
             HStack {
-                Button(L10n.text("取消", "Cancel"), action: onCancel)
+                Button(L10n.tr("shell.action.cancel"), action: onCancel)
                 Spacer()
-                Button(L10n.text("保存映射", "Save Mapping")) {
+                Button(L10n.tr("shortcut.capture.save")) {
                     if let captured { onSave(captured) }
                 }
                 .keyboardShortcut(.defaultAction)
@@ -652,6 +637,7 @@ private final class KeyboardCaptureNSView: NSView {
 }
 
 private struct PermissionGuideView: View {
+    @ObservedObject private var languageStore = LanguageStore.shared
     let kind: PermissionKind
     let onCancel: () -> Void
     let onOpenSettings: () -> Void
@@ -666,10 +652,7 @@ private struct PermissionGuideView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(kind.title)
                         .font(.system(size: 19, weight: .semibold))
-                    Text(L10n.text(
-                        "设置向导 · 第 \(page + 1) / \(kind.pageCount) 步",
-                        "Setup guide · Step \(page + 1) of \(kind.pageCount)"
-                    ))
+                    Text(L10n.tr("permission.guide.step", page + 1, kind.pageCount))
                         .font(.system(size: 11))
                         .foregroundStyle(ConsoleTheme.secondary)
                 }
@@ -677,7 +660,10 @@ private struct PermissionGuideView: View {
             }
 
             GuideScreenshot(kind: kind, page: $page)
-                .frame(height: 350)
+                .frame(height: 320)
+            if AppLanguage.selected.resolved() != .simplifiedChinese {
+                Text(L10n.tr("permission.guide.illustration")).font(.caption).foregroundStyle(ConsoleTheme.secondary)
+            }
 
             Text(kind.guidance[page])
                 .font(.system(size: 13, weight: .medium))
@@ -693,10 +679,10 @@ private struct PermissionGuideView: View {
                     }
                 }
                 Spacer()
-                Button(L10n.text("取消", "Cancel"), action: onCancel)
+                Button(L10n.tr("shell.action.cancel"), action: onCancel)
                     .keyboardShortcut(.cancelAction)
                     .buttonStyle(ConsoleButtonStyle(tone: .neutral))
-                Button(L10n.text("立即设置", "Open Settings"), action: onOpenSettings)
+                Button(L10n.tr("permission.action.open_settings"), action: onOpenSettings)
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(ConsoleButtonStyle(tone: ConsoleButtonTone.good))
             }
@@ -709,13 +695,14 @@ private struct PermissionGuideView: View {
 }
 
 private struct GuideScreenshot: View {
+    @ObservedObject private var languageStore = LanguageStore.shared
     let kind: PermissionKind
     @Binding var page: Int
 
     var body: some View {
         GeometryReader { proxy in
             ZStack {
-                if let image = GuideAsset.image(named: kind.screenshotName(for: page)) {
+                if AppLanguage.selected.resolved() == .simplifiedChinese, let image = GuideAsset.image(named: kind.screenshotName(for: page)) {
                     Image(nsImage: image)
                         .resizable()
                         .scaledToFit()
@@ -724,7 +711,7 @@ private struct GuideScreenshot: View {
                     screenshotPlaceholder
                 }
 
-                if kind != .doubaoInput || page == 0 {
+                if AppLanguage.selected.resolved() == .simplifiedChinese && (kind != .doubaoInput || page == 0) {
                     RoundedRectangle(cornerRadius: 10)
                         .stroke(ConsoleTheme.red, lineWidth: 3)
                         .frame(
@@ -757,11 +744,11 @@ private struct GuideScreenshot: View {
     private var screenshotPlaceholder: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 12) {
-                Text(L10n.text("系统设置", "System Settings"))
+                Text(kind == .doubaoInput ? L10n.tr("permission.guide.doubaoSettings") : L10n.tr("permission.settings.title"))
                     .font(.system(size: 16, weight: .semibold))
-                Text(L10n.text("隐私与安全性", "Privacy & Security"))
+                Text(kind == .doubaoInput ? L10n.tr("permission.guide.inputDevice") : L10n.tr("permission.settings.privacy"))
                     .foregroundStyle(ConsoleTheme.text)
-                Text(kind.title.replacingOccurrences(of: "权限", with: ""))
+                Text(kind.title)
                     .foregroundStyle(ConsoleTheme.green)
                 Spacer()
             }
@@ -771,14 +758,11 @@ private struct GuideScreenshot: View {
             VStack(alignment: .leading, spacing: 18) {
                 Text(kind.title)
                     .font(.system(size: 18, weight: .semibold))
-                Text(L10n.text(
-                    "允许下方的应用访问此功能。",
-                    "Allow the apps below to access this feature."
-                ))
+                Text(kind == .doubaoInput ? L10n.tr("permission.guide.selectMicrophone") : L10n.tr("permission.settings.allow_apps"))
                     .foregroundStyle(ConsoleTheme.secondary)
                 HStack {
                     Image(nsImage: LogoAsset.image).resizable().frame(width: 30, height: 30)
-                    Text("vRemoter")
+                    Text(kind == .doubaoInput ? "vRemoteDr 2ch" : "vRemoter")
                     Spacer()
                     Toggle("", isOn: .constant(false)).labelsHidden()
                 }
@@ -833,6 +817,7 @@ private struct GuideScreenshot: View {
         .buttonStyle(.plain)
         .foregroundStyle(enabled ? ConsoleTheme.text : ConsoleTheme.tertiary)
         .disabled(!enabled)
+        .accessibilityLabel(L10n.tr(systemName == "chevron.left" ? "permission.guide.previous" : "permission.guide.next"))
     }
 
 }

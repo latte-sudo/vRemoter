@@ -30,4 +30,6 @@ node --check docs/prototypes/test-vremoter-onboarding-settings.cjs
 node docs/prototypes/test-vremoter-onboarding-settings.cjs
 ```
 
-测试脚本会在 Node VM 中编译并运行 HTML 内的 JavaScript，覆盖 67 项交互、状态与新版布局约束回归。它使用模拟 DOM，不能替代真实浏览器的视觉、布局或无障碍验证；这里不宣称浏览器或原生视觉验收已完成。
+测试脚本会在 Node VM 中编译并运行 HTML 内的 JavaScript，覆盖 81 项交互、状态与新版布局约束回归。它使用模拟 DOM，不能替代真实浏览器的视觉、布局或无障碍验证；这里不宣称浏览器或原生视觉验收已完成。
+
+The v8 prototype has 665 three-language keys (Simplified Chinese, Traditional Chinese and English), with a persistent System option and immediate switching. Its JSON backup format remains separate from native property-list archives. Reset and legacy backups preserve the selected language.

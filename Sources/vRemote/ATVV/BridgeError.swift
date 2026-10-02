@@ -5,10 +5,14 @@ import Foundation
 enum BridgeError: LocalizedError {
     case protocolFailure(String)
 
+    var diagnosticDescription: String {
+        switch self { case .protocolFailure(let message): return message }
+    }
+
     var errorDescription: String? {
         switch self {
-        case .protocolFailure(let message):
-            return message
+        case .protocolFailure:
+            return L10n.tr("support.bridge.audioFailed")
         }
     }
 }

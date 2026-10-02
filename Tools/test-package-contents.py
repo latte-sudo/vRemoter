@@ -53,7 +53,7 @@ with tempfile.TemporaryDirectory(prefix="vremote-package-fixture-") as temporary
         target = fixture / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(root / relative, target)
-    for directory in [root / "Resources/PermissionGuides", *(root / "Packaging").glob("*.lproj")]:
+    for directory in [root / "Resources/PermissionGuides", root / "Sources/vRemote/Resources", *(root / "Packaging").glob("*.lproj")]:
         shutil.copytree(directory, fixture / directory.relative_to(root))
 
     bin_dir = fixture / "fake-bin"
@@ -78,6 +78,8 @@ with tempfile.TemporaryDirectory(prefix="vremote-package-fixture-") as temporary
             assert (resources / "Licenses" / name).read_bytes() == (root / source).read_bytes(), name
         assert sorted(path.name for path in (resources / "RemoteImages").iterdir()) == ["chromecast-front-and-volume-enhanced.png"]
         assert (resources / "RemoteImages/chromecast-front-and-volume-enhanced.png").read_bytes() == (root / "Resources/RemoteImages/chromecast-front-and-volume-enhanced.png").read_bytes()
+        for language in ["en", "zh-Hans", "zh-Hant"]:
+            assert (resources / (language + ".lproj") / "Localizable.strings").read_bytes() == (root / "Sources/vRemote/Resources" / (language + ".lproj") / "Localizable.strings").read_bytes()
         assert not list(resources.rglob("*.bundle")), "stale dependency bundle was packaged"
         assert not (resources / "Commerce").exists()
         assert not (resources / "BuyMeACoffee").exists()
@@ -101,6 +103,12 @@ with tempfile.TemporaryDirectory(prefix="vremote-package-fixture-") as temporary
         invalid_notice = subprocess.run(checker, text=True, capture_output=True)
         assert invalid_notice.returncode != 0 and "notice content differs" in invalid_notice.stderr
         notice.write_bytes(original_notice)
+        translation = resources / "zh-Hant.lproj/Localizable.strings"
+        original_translation = translation.read_bytes()
+        translation.unlink()
+        invalid_translation = subprocess.run(checker, text=True, capture_output=True)
+        assert invalid_translation.returncode != 0 and "translation resource missing" in invalid_translation.stderr
+        translation.write_bytes(original_translation)
         stale_bundle = resources / "TelemetryDeck_SwiftSDK.bundle"
         stale_bundle.mkdir()
         invalid_bundle = subprocess.run(checker, text=True, capture_output=True)

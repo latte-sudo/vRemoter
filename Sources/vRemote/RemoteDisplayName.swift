@@ -4,7 +4,7 @@ import Foundation
 /// or a physical-device identifier. Never use this value for discovery/binding.
 enum RemoteDisplayName {
     static let key = "chromecast.remoteDisplayName"
-    static let defaultName = "Chromecast Voice Remote"
+    static var defaultName: String { L10n.tr("support.remote.chromecast") }
     static let maximumLength = 64
     // Also bound pathological strings consisting of huge combining sequences.
     static let maximumUTF8Bytes = 4096

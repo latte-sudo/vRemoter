@@ -7,7 +7,9 @@ if ! command -v swiftc >/dev/null 2>&1; then
   exit 127
 fi
 mkdir -p "$ROOT/.build"
+cp -R "$ROOT/Sources/vRemote/Resources/"*.lproj "$ROOT/.build/"
 swiftc \
+  "$ROOT/Sources/vRemote/Localization.swift" \
   "$ROOT/Sources/vRemote/RemoteButtonGestures.swift" \
   "$ROOT/SelfTests/Gestures/RemoteButtonGestureTests.swift" \
   -o "$ROOT/.build/remote-gesture-tests"
@@ -15,12 +17,14 @@ swiftc \
 
 if [[ "$(uname -s)" == Darwin ]]; then
   swiftc \
+  "$ROOT/Sources/vRemote/Localization.swift" \
     "$ROOT/Sources/vRemote/RemoteButtonGestures.swift" \
     "$ROOT/Sources/vRemote/RemoteMappingSupport.swift" \
     "$ROOT/SelfTests/Gestures/RemoteMappingStoreTests.swift" \
     -o "$ROOT/.build/remote-mapping-store-tests"
   "$ROOT/.build/remote-mapping-store-tests"
   swiftc \
+  "$ROOT/Sources/vRemote/Localization.swift" \
     "$ROOT/Sources/vRemote/RemoteButtonGestures.swift" \
     "$ROOT/Sources/vRemote/RemoteMappingSupport.swift" \
     "$ROOT/Sources/vRemote/RemoteButtonMappingController.swift" \

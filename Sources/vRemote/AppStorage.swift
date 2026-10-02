@@ -111,9 +111,15 @@ enum AppStorage {
     }
 
     static func formattedSize(_ bytes: UInt64) -> String {
-        ByteCountFormatter.string(
-            fromByteCount: Int64(bytes),
-            countStyle: .file
-        )
+        let formatter = NumberFormatter()
+        formatter.locale = AppLanguage.selected.locale
+        formatter.numberStyle = .decimal
+        let units = ["storage.bytes", "storage.kilobytes", "storage.megabytes", "storage.gigabytes", "storage.terabytes"]
+        var value = Double(bytes)
+        var index = 0
+        while value >= 1000 && index < units.count - 1 { value /= 1000; index += 1 }
+        formatter.maximumFractionDigits = index == 0 ? 0 : 1
+        let amount = formatter.string(from: NSNumber(value: value)) ?? String(value)
+        return L10n.tr(units[index], amount)
     }
 }

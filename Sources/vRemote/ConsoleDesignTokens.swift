@@ -75,6 +75,7 @@ struct ConsolePrimaryButtonStyle: ButtonStyle {
 
 struct ConsoleAppearancePicker: View {
     @Binding var selection: AppAppearance
+    @ObservedObject private var languageStore = LanguageStore.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var slider
     var body: some View {
@@ -95,13 +96,13 @@ struct ConsoleAppearancePicker: View {
                         })
                         .contentShape(Rectangle())
                 }.buttonStyle(.plain)
-                    .accessibilityLabel("外观：" + title(appearance))
-                    .accessibilityValue(selection == appearance ? "已选择" : "未选择")
+                    .accessibilityLabel(L10n.tr("appearance.label", title(appearance)))
+                    .accessibilityValue(selection == appearance ? L10n.tr("console.accessibility.selected") : L10n.tr("console.accessibility.notSelected"))
             }
         }.padding(3).frame(width: 252).background(ConsoleDesignTokens.secondarySurface)
             .cornerRadius(9).accessibilityElement(children: .contain)
     }
     private func title(_ appearance: AppAppearance) -> String {
-        switch appearance { case .system: return "跟随系统"; case .light: return "浅色"; case .dark: return "深色" }
+        switch appearance { case .system: return L10n.tr("language.system"); case .light: return L10n.tr("appearance.light"); case .dark: return L10n.tr("appearance.dark") }
     }
 }

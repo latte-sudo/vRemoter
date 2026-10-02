@@ -9,7 +9,7 @@ enum ChromecastSettingsArchive {
     static let version = 1
     static let voiceKey = "voiceConfiguration.v1"
     static func allowed(_ key: String) -> Bool {
-        key == voiceKey || key == RemoteDisplayName.key || key == AppAppearance.key || key == DockVisibilityPreference.key || key == AppStorage.inputTriggerKeyKey ||
+        key == AppLanguage.key || key == voiceKey || key == RemoteDisplayName.key || key == AppAppearance.key || key == DockVisibilityPreference.key || key == AppStorage.inputTriggerKeyKey ||
         key == AudioRouteConfiguration.selectedOutputUIDKey || key == AudioRouteConfiguration.remoteGainKey || key.hasPrefix("remoteMapping.chromecast.") ||
         key.hasPrefix("remoteCustomMapping.chromecast.") ||
         key.hasPrefix("remoteApplicationMapping.chromecast.") ||
@@ -27,13 +27,18 @@ enum ChromecastSettingsArchive {
         UserDefaults.standard.dictionaryRepresentation().filter { allowed($0.key) }
     }
     static func restore(_ values: [String: Any]) {
+        let previousLanguage = AppLanguage.selected
         for key in snapshot().keys { UserDefaults.standard.removeObject(forKey: key) }
         for (key, value) in values where allowed(key) {
             if key == RemoteDisplayName.key {
                 if let raw = value as? String { try? RemoteDisplayName.set(raw) }
             } else { UserDefaults.standard.set(value, forKey: key) }
         }
+        // A legacy archive has no language choice; reset and old imports keep
+        // the readable interface language. New backups can explicitly restore it.
+        if values[AppLanguage.key] == nil { UserDefaults.standard.set(previousLanguage.rawValue, forKey: AppLanguage.key) }
         RemoteMappingStore.shared.reload()
+        if previousLanguage != AppLanguage.selected { AppLanguage.notifyChange() }
     }
     static func exportData() throws -> Data {
         try PropertyListSerialization.data(fromPropertyList: ["schemaVersion": version,
@@ -56,6 +61,9 @@ enum ChromecastSettingsArchive {
             if key == RemoteDisplayName.key {
                 guard let raw = value as? String,
                       (try? RemoteDisplayName.normalizedAlias(raw)) != nil else { throw ArchiveError.invalid }
+            }
+            if key == AppLanguage.key {
+                guard let raw = value as? String, AppLanguage(rawValue: raw) != nil else { throw ArchiveError.invalid }
             }
             if key == AppAppearance.key {
                 guard let raw = value as? String, AppAppearance(rawValue: raw) != nil else { throw ArchiveError.invalid }
@@ -110,6 +118,6 @@ enum ChromecastSettingsArchive {
     }
     enum ArchiveError: LocalizedError {
         case invalid
-        var errorDescription: String? { "配置文件无效、版本不受支持，或包含非 Chromecast 设置。原设置没有改变。" }
+        var errorDescription: String? { L10n.tr("backup.invalid") }
     }
 }

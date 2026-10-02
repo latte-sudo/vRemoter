@@ -15,9 +15,7 @@ final class AudioPipe {
     static let shared = AudioPipe()
     func setRemoteActive(_ active: Bool) -> Bool { true }
 }
-enum L10n {
-    static func text(_ chinese: String, _ english: String) -> String { english }
-}
+
 final class DoubaoAudioStateMonitor {
     enum State { case unavailable, inactive, active }
     struct Snapshot { let state: State; var isRecording: Bool { state == .active } }
@@ -446,7 +444,7 @@ do {
     require(h.controller.isActive && h.controller.debugSnapshot.phase == "closing"
             && h.downs == h.ups && h.ended == 0,
             "failed route cleanup keeps session closing after final key-up")
-    require(h.statuses.last == "Local audio resources are still closing · retry stop",
+    require(h.statuses.last == L10n.tr("support.voice.stillClosing"),
             "failed cleanup never reports local voice closed")
     let previousDowns = h.downs
     h.press()
@@ -468,16 +466,16 @@ for state in [DoubaoAudioStateMonitor.State.inactive, .active, .unavailable] {
     h.monitor.emit(.active)
     h.release()
     h.scheduler.advance(by: 0.13)
-    require(!h.controller.isActive && h.statuses.last?.contains("not yet confirmed") == true,
+    require(!h.controller.isActive && h.controller.presentation.targetStopStatus == .unconfirmed && h.statuses.last == L10n.tr("support.voice.stoppedUnconfirmed"),
             "local cleanup does not claim immediate target stop confirmation")
     let eventCount = h.events.count
     h.monitor.state = state
     h.scheduler.advance(by: 1.51)
     let expected: String
     switch state {
-    case .inactive: expected = "Local voice closed · Doubao stopped recording"
-    case .active: expected = "Local voice closed · warning: Doubao is still recording; stop it in Doubao"
-    case .unavailable: expected = "Local voice closed · Doubao stop not confirmed"
+    case .inactive: expected = L10n.tr("support.voice.doubaoStopped")
+    case .active: expected = L10n.tr("support.voice.doubaoStillRecording")
+    case .unavailable: expected = L10n.tr("support.voice.doubaoUnconfirmed")
     }
     require(h.statuses.last == expected, "post-stop \(state) snapshot reports honest target status")
     require(h.events.count == eventCount && h.downs == h.ups,
@@ -488,7 +486,7 @@ do {
     let h = Harness(remote: .hold, target: .hold, tool: .custom)
     h.press(); h.release()
     h.scheduler.advance(by: 2)
-    require(h.statuses.last == "Local voice closed · custom tool stop not confirmed",
+    require(h.statuses.last == L10n.tr("support.voice.customUnconfirmed"),
             "custom tool stop remains explicitly unconfirmed")
     require(h.monitor.starts == 0, "custom post-stop check never starts Doubao observer")
     h.controller.stop()
@@ -500,7 +498,7 @@ do {
     h.press(); h.monitor.emit(.active)
     let statusCount = h.statuses.count
     h.scheduler.advance(by: 1.5)
-    require(h.controller.isActive && h.statuses.count == statusCount && h.statuses.last == "Recording",
+    require(h.controller.isActive && h.statuses.count == statusCount && h.statuses.last == L10n.tr("support.voice.recording"),
             "previous stop confirmation cannot label a new recording session")
     h.controller.stop()
 }
@@ -510,7 +508,7 @@ do {
     h.routeStopSucceeds = false
     h.controller.disconnected()
     require(h.controller.isActive && h.controller.debugSnapshot.phase == "closing"
-            && h.statuses.last == "Local audio resources are still closing · retry stop",
+            && h.statuses.last == L10n.tr("support.voice.stillClosing"),
             "idle temporary-output cleanup failure remains closing on disconnect")
     h.routeStopSucceeds = true
     h.controller.forceClose()
