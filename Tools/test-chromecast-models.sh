@@ -15,6 +15,10 @@ swiftc Sources/vRemote/AppAppearance.swift SelfTests/AppAppearanceTests.swift -o
 swiftc Sources/vRemote/RemoteDisplayName.swift SelfTests/RemoteDisplayNameTests.swift -o .build/chromecast-tests/remote-name
 .build/chromecast-tests/remote-name
 bash Tools/run-gesture-tests.sh
+swiftc Sources/vRemote/VoiceSessionPresentation.swift SelfTests/VoiceSessionPresentationTests.swift -o .build/chromecast-tests/voice-presentation
+.build/chromecast-tests/voice-presentation
+swiftc Sources/vRemote/OnboardingProgress.swift SelfTests/OnboardingProgressTests.swift -o .build/chromecast-tests/onboarding-progress
+.build/chromecast-tests/onboarding-progress
 bash run-chromecast-voice-tests.sh
 bash Tools/test-voice-launcher.sh
 

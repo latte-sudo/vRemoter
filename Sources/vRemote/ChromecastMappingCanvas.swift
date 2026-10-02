@@ -178,7 +178,7 @@ private struct ChromecastVoiceMappingCard: View {
     }
 }
 
-private enum ChromecastMappingPhoto {
+enum ChromecastMappingPhoto {
     static let image: NSImage? = {
         let filename = "chromecast-front-and-volume-enhanced.png"
         let paths = [Bundle.main.resourceURL?.appendingPathComponent("RemoteImages/" + filename),

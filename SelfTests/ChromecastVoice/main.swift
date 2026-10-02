@@ -100,7 +100,10 @@ final class Harness {
     var ended = 0
     var routeStopSucceeds = true
     var routeStartSucceeds = true
+    var targetStartsSynchronously = false
     var statuses = [String]()
+    var presentations = [VoiceSessionPresentation]()
+    var presentationsAtEnd = [VoiceSessionPresentation]()
     lazy var controller: ChromecastVoiceSessionController = {
         let value = ChromecastVoiceSessionController(
             configurationProvider: { [unowned self] in self.configuration },
@@ -109,7 +112,10 @@ final class Harness {
                 self.events.append("route:\(active)")
                 return active ? self.routeStartSucceeds : self.routeStopSucceeds
             },
-            triggerDown: { [unowned self] in self.events.append("down:\($0.rawValue)") },
+            triggerDown: { [unowned self] in
+                self.events.append("down:\($0.rawValue)")
+                if self.targetStartsSynchronously { self.monitor.emit(.active) }
+            },
             triggerUp: { [unowned self] in self.events.append("up:\($0.rawValue)") },
             schedule: { [unowned self] delay, work in self.scheduler.schedule(after: delay, work: work) }
         )
@@ -119,8 +125,12 @@ final class Harness {
             return self.openResults.isEmpty ? .sent : self.openResults.removeFirst()
         }
         value.onMicrophoneCloseRequested = { [unowned self] in self.closes += 1 }
-        value.onSessionEnded = { [unowned self] in self.ended += 1 }
+        value.onSessionEnded = { [unowned self] in
+            self.ended += 1
+            self.presentationsAtEnd.append(self.controller.presentation)
+        }
         value.onStateChanged = { [unowned self] in self.statuses.append($0) }
+        value.onPresentationChanged = { [unowned self] in self.presentations.append($0) }
         return value
     }()
 
@@ -514,6 +524,131 @@ do {
     h.routeStopSucceeds = true
     h.controller.forceClose()
     require(!h.controller.isActive && h.downs == 0, "idle cleanup retry releases without target shortcut")
+    h.controller.stop()
+}
+
+// Typed presentation follows controller facts rather than localized text or
+// page lifetimes. These checks use the same deterministic scheduler as the
+// shortcut/transport suite; no wall-clock sleeps or hardware are involved.
+do {
+    let h = Harness(remote: .hold, target: .hold)
+    require(h.controller.presentation.phase == .idle && h.presentations.last?.phase == .idle,
+            "typed ready state is emitted as idle")
+    h.press(receivesPCM: false)
+    require(h.controller.presentation.phase == .opening && h.controller.isActive
+            && h.controller.presentation.startedAt == nil,
+            "real press emits opening before PCM without starting recording time")
+    require(!h.presentations.contains { $0.phase == .recording },
+            "startup never publishes recording before actual PCM")
+    h.controller.remotePCMReceived()
+    let recordingStartedAt = h.controller.presentation.startedAt
+    require(h.controller.presentation.phase == .recording && recordingStartedAt != nil,
+            "custom target enters recording only after first PCM")
+    let publicationCount = h.presentations.count
+    h.controller.remotePCMReceived()
+    require(h.controller.presentation.startedAt == recordingStartedAt
+            && h.presentations.count == publicationCount,
+            "later PCM preserves global recording time without repeating publication")
+    h.release()
+    require(h.controller.presentation.phase == .ending && h.controller.isActive
+            && h.controller.presentation.endedAt == nil && h.ended == 0,
+            "physical release emits ending while audio tail is still owned")
+    h.scheduler.advance(by: 0.119)
+    require(h.controller.presentation.phase == .ending && h.ended == 0,
+            "typed ending persists until the bounded drain actually completes")
+    h.scheduler.advance(by: 0.002)
+    require(h.controller.presentation.phase == .ended && !h.controller.isActive
+            && h.controller.presentation.endedAt != nil && h.ended == 1,
+            "typed ended is emitted only after local resource release")
+    require(h.presentationsAtEnd.last?.phase == .ended
+            && h.controller.presentation.targetStopStatus == .unconfirmed,
+            "session-ended callback sees local completion without invented target confirmation")
+    h.controller.stop()
+}
+
+for pcmArrivesFirst in [true, false] {
+    let h = Harness(remote: .hold, target: .hold, tool: .doubao)
+    h.press(receivesPCM: false)
+    if pcmArrivesFirst {
+        h.controller.remotePCMReceived()
+    } else {
+        h.monitor.emit(.active)
+    }
+    require(h.controller.presentation.phase == .opening && h.controller.presentation.startedAt == nil,
+            "Doubao remains opening with only \(pcmArrivesFirst ? "PCM" : "target") evidence")
+    if pcmArrivesFirst {
+        h.monitor.emit(.active)
+    } else {
+        h.controller.remotePCMReceived()
+    }
+    require(h.controller.presentation.phase == .recording && h.controller.presentation.startedAt != nil,
+            "Doubao records after both facts arrive in \(pcmArrivesFirst ? "PCM-first" : "target-first") order")
+    h.controller.stop()
+}
+
+do {
+    let h = Harness(remote: .hold, target: .hold, tool: .doubao)
+    h.targetStartsSynchronously = true
+    h.press(receivesPCM: false)
+    require(h.controller.presentation.phase == .opening
+            && !h.presentations.contains { $0.phase == .recording },
+            "synchronous target callback cannot mistake absent startup work items for PCM evidence")
+    h.controller.remotePCMReceived()
+    require(h.controller.presentation.phase == .recording,
+            "synchronous target confirmation still requires a real first PCM packet")
+    h.controller.stop()
+}
+
+do {
+    let h = Harness(remote: .hold, target: .hold, tool: .doubao)
+    h.press(receivesPCM: false)
+    h.monitor.emit(.active)
+    h.scheduler.advance(by: 2.01)
+    let failure = h.controller.presentation
+    require(failure.phase == .error && failure.failure == .noRemoteAudio
+            && failure.startedAt == nil && !h.controller.isActive,
+            "first-PCM timeout emits a typed startup error without recording time")
+    require(h.ended == 1 && h.presentationsAtEnd.last?.phase == .error
+            && h.presentationsAtEnd.last?.failure == .noRemoteAudio,
+            "session-ended cleanup preserves the original startup error")
+    h.monitor.state = .inactive
+    h.scheduler.advance(by: 1.51)
+    require(h.controller.presentation.phase == .error && h.controller.presentation.failure == .noRemoteAudio
+            && h.controller.presentation.detail == failure.detail
+            && h.controller.presentation.targetStopStatus == .confirmed,
+            "real target-stop confirmation cannot erase an unrelated startup failure")
+    h.controller.remotePCMReceived()
+    h.controller.remoteAudioStarted(reason: 0)
+    require(h.controller.presentation.phase == .error && !h.controller.isActive,
+            "late PCM and unsolicited host start cannot clear a sticky error")
+    h.press(receivesPCM: false)
+    require(h.controller.presentation.phase == .opening && h.controller.presentation.failure == nil
+            && h.controller.presentation.startedAt == nil && h.controller.presentation.endedAt == nil,
+            "a deliberate fresh press resets the previous error and timestamps")
+    h.controller.remotePCMReceived()
+    require(h.controller.presentation.phase == .opening,
+            "retry still requires fresh target evidence after its PCM")
+    h.monitor.emit(.active)
+    require(h.controller.presentation.phase == .recording,
+            "fresh PCM and target evidence complete the deliberate retry")
+    h.controller.stop()
+}
+
+do {
+    let h = Harness(remote: .hold, target: .hold)
+    h.routeStartSucceeds = false
+    h.routeStopSucceeds = false
+    h.press(receivesPCM: false)
+    require(h.controller.presentation.phase == .error
+            && h.controller.presentation.failure == .localAudioStillClosing && h.controller.isActive,
+            "failed startup plus failed cleanup remains an active actionable error")
+    h.routeStopSucceeds = true
+    h.controller.forceClose()
+    require(h.controller.presentation.phase == .error
+            && h.controller.presentation.failure == .outputStartupFailed && !h.controller.isActive,
+            "successful resource retry restores the underlying startup error")
+    require(h.ended == 1 && h.presentationsAtEnd.last?.failure == .outputStartupFailed,
+            "resource-retry session-ended callback cannot replace startup failure with success")
     h.controller.stop()
 }
 

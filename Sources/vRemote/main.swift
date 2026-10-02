@@ -217,8 +217,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         chromecastSession.onStateChanged = { [weak self] status in
             guard let self else { return }
             self.voiceStatus = status
-            self.debugWindow.voiceStateChanged(active: self.chromecastSession.isActive)
             self.updateStatus()
+        }
+        chromecastSession.onPresentationChanged = { [weak self] presentation in
+            guard let self else { return }
+            self.debugWindow.voiceStateChanged(presentation, active: self.chromecastSession.isActive)
         }
         chromecastSession.onSessionEnded = { [weak self] in self?.debugWindow.voiceSessionEnded() }
         chromecastHID.onButtonObserved = { [weak self] id in self?.debugWindow.observedButton(id) }

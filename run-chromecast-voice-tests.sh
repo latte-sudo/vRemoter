@@ -17,6 +17,7 @@ swiftc \
   "$ROOT/Sources/vRemote/ChromecastVoiceStateMachine.swift" \
   "$ROOT/SelfTests/ChromecastVoice/TransportTests.swift" \
   "$ROOT/Sources/vRemote/VoiceConfiguration.swift" \
+  "$ROOT/Sources/vRemote/VoiceSessionPresentation.swift" \
   "$ROOT/Sources/vRemote/ChromecastVoiceSessionController.swift" \
   "$ROOT/SelfTests/ChromecastVoice/main.swift" \
   -o "$OUTPUT/voice-tests"

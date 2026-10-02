@@ -18,5 +18,7 @@ jobs:
         env:
           VREMOTE_VOICE_TEST_REPETITIONS: "20"
         run: bash Tools/test-chromecast-models.sh
+      - name: Native interface source contracts
+        run: python3 Tools/check-native-interface.py
       - name: Whitespace check
         run: git diff --check

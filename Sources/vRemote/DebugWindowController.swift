@@ -265,6 +265,7 @@ final class ConsoleViewModel: ObservableObject {
     @Published var remoteStreaming = false
     @Published var macInputEnabled = false
     @Published var voiceActive = false
+    @Published var voicePresentation = VoiceSessionPresentation()
     @Published var receivedAudioPackets = 0
     @Published var completedVoiceSessions = 0
     @Published var lastButtonID: String?
@@ -509,7 +510,7 @@ final class ConsoleViewModel: ObservableObject {
 }
 
 final class DebugWindowController: NSWindowController, NSWindowDelegate {
-    private static let windowSize = NSSize(width: 980, height: 760)
+    private static let windowSize = NSSize(width: 1160, height: 820)
 
     var onStopMicrophone: (() -> Void)?
     var onRemoteDisplayNameChanged: (() -> Void)?
@@ -540,8 +541,7 @@ final class DebugWindowController: NSWindowController, NSWindowDelegate {
         window.isReleasedWhenClosed = false
         window.backgroundColor = .windowBackgroundColor
         // Inherit the app's selected appearance, including automatic system changes.
-        window.minSize = windowSize
-        window.maxSize = windowSize
+        window.minSize = NSSize(width: 1080, height: 720)
         super.init(window: window)
         window.delegate = self
 
@@ -564,10 +564,7 @@ final class DebugWindowController: NSWindowController, NSWindowDelegate {
         }
         window.contentView = NSHostingView(
             rootView: ChromecastConsoleView(model: model)
-                .frame(
-                    width: windowSize.width,
-                    height: windowSize.height
-                )
+                .frame(minWidth: 1080, minHeight: 720)
         )
     }
 
@@ -617,7 +614,8 @@ final class DebugWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
-    func voiceStateChanged(active: Bool) {
+    func voiceStateChanged(_ presentation: VoiceSessionPresentation, active: Bool) {
+        model.voicePresentation = presentation
         model.voiceActive = active
     }
 
