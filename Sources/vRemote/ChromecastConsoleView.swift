@@ -552,37 +552,69 @@ private struct ChromecastMappingCard: View {
     let onEdit: (RemoteButtonGesture) -> Void
     @ObservedObject private var store = RemoteMappingStore.shared
 
+    private var borderColor: Color {
+        if observed { return .green }
+        if selected { return .accentColor }
+        return Color.secondary.opacity(0.25)
+    }
+
+    private var header: some View {
+        HStack(spacing: 5) {
+            Image(systemName: button.symbol).frame(width: 15)
+            Text(button.title).fontWeight(.semibold)
+            Spacer(minLength: 0)
+            if observed { Text("收到").foregroundColor(Color.green).font(.caption2) }
+            else if selected { Image(systemName: "scope").foregroundColor(Color.accentColor) }
+        }.font(.caption)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            HStack(spacing: 5) {
-                Image(systemName: button.symbol).frame(width: 15)
-                Text(button.title).fontWeight(.semibold)
-                Spacer(minLength: 0)
-                if observed { Text("收到").foregroundColor(.green).font(.caption2) }
-                else if selected { Image(systemName: "scope").foregroundColor(.accentColor) }
-            }.font(.caption)
+            header
             ForEach(RemoteButtonGesture.allCases, id: \.self) { gesture in
-                Button { onEdit(gesture) } label: {
-                    HStack(spacing: 5) {
-                        Text(gesture.title).foregroundColor(.secondary).frame(width: 30, alignment: .leading)
-                        Text(store.targetTitle(for: button, remote: .chromecast, gesture: gesture))
-                            .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
-                        Image(systemName: "pencil").font(.system(size: 9)).foregroundColor(.secondary)
-                    }
-                    .font(.system(size: 11))
-                    .padding(.horizontal, 4).padding(.vertical, 2)
-                    .background(selectedGesture == gesture ? Color.accentColor.opacity(0.13) : Color.clear)
-                    .cornerRadius(4)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help(button.title + " · " + gesture.title + "：" + store.targetTitle(for: button, remote: .chromecast, gesture: gesture))
-                .accessibilityLabel(button.title + "，" + gesture.title + "，当前动作：" + store.targetTitle(for: button, remote: .chromecast, gesture: gesture) + "，编辑")
+                ChromecastMappingGestureCell(
+                    buttonTitle: button.title,
+                    gesture: gesture,
+                    actionTitle: store.targetTitle(for: button, remote: .chromecast, gesture: gesture),
+                    selected: selectedGesture == gesture,
+                    onEdit: { onEdit(gesture) }
+                )
             }
         }
         .padding(8)
         .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(9)
-        .overlay(RoundedRectangle(cornerRadius: 9).stroke(observed ? Color.green : selected ? Color.accentColor : Color.secondary.opacity(0.25), lineWidth: observed || selected ? 2 : 1))
+        .overlay(RoundedRectangle(cornerRadius: 9).stroke(borderColor, lineWidth: observed || selected ? 2 : 1))
+    }
+}
+
+private struct ChromecastMappingGestureCell: View {
+    let buttonTitle: String
+    let gesture: RemoteButtonGesture
+    let actionTitle: String
+    let selected: Bool
+    let onEdit: () -> Void
+
+    private var helpText: String { "\(buttonTitle) · \(gesture.title)：\(actionTitle)" }
+    private var accessibilityText: String { "\(buttonTitle)，\(gesture.title)，当前动作：\(actionTitle)，编辑" }
+
+    private var label: some View {
+        HStack(spacing: 5) {
+            Text(gesture.title).foregroundColor(Color.secondary).frame(width: 30, alignment: .leading)
+            Text(actionTitle).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+            Image(systemName: "pencil").font(.system(size: 9)).foregroundColor(Color.secondary)
+        }
+        .font(.system(size: 11))
+        .padding(.horizontal, 4).padding(.vertical, 2)
+        .background(selected ? Color.accentColor.opacity(0.13) : Color.clear)
+        .cornerRadius(4)
+        .contentShape(Rectangle())
+    }
+
+    var body: some View {
+        Button(action: onEdit) { label }
+            .buttonStyle(.plain)
+            .help(helpText)
+            .accessibilityLabel(accessibilityText)
     }
 }
