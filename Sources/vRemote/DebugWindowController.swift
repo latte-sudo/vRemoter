@@ -594,6 +594,33 @@ final class DebugWindowController: NSWindowController, NSWindowDelegate {
     }
 }
 
+/// Shared by both console roots so retained menu actions keep their existing
+/// permission/help/donation/purchase presentation and dismissal behavior.
+struct ConsoleModalContent: View {
+    @ObservedObject var model: ConsoleViewModel
+    let modal: ConsoleModal
+
+    var body: some View {
+        switch modal {
+        case .permission(let kind):
+            PermissionGuideView(
+                kind: kind,
+                onCancel: { model.activeModal = nil },
+                onOpenSettings: { model.openSettings(for: kind) }
+            )
+        case .donationPrompt:
+            DonationPromptView(
+                onDonate: model.showDonationFromPrompt,
+                onLater: model.dismissDonationPrompt
+            )
+        case .donation:
+            DonationView()
+        case .purchase:
+            PurchaseView(model: .shared)
+        }
+    }
+}
+
 private struct StudioMixerView: View {
     @ObservedObject var model: ConsoleViewModel
     @ObservedObject private var commerce = CommerceConfigModel.shared
@@ -623,23 +650,7 @@ private struct StudioMixerView: View {
                 .padding(.bottom, 8)
         }
         .sheet(item: $model.activeModal) { modal in
-            switch modal {
-            case .permission(let kind):
-                PermissionGuideView(
-                    kind: kind,
-                    onCancel: { model.activeModal = nil },
-                    onOpenSettings: { model.openSettings(for: kind) }
-                )
-            case .donationPrompt:
-                DonationPromptView(
-                    onDonate: model.showDonationFromPrompt,
-                    onLater: model.dismissDonationPrompt
-                )
-            case .donation:
-                DonationView()
-            case .purchase:
-                PurchaseView(model: .shared)
-            }
+            ConsoleModalContent(model: model, modal: modal)
         }
         .onAppear {
             commerce.refresh()

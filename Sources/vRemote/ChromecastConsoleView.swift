@@ -48,6 +48,9 @@ struct ChromecastConsoleView: View {
             Spacer(minLength: 0)
         }
         .padding(24)
+        .sheet(item: $model.activeModal) { modal in
+            ConsoleModalContent(model: model, modal: modal)
+        }
         .onAppear {
             if setup { UserDefaults.standard.set(true, forKey: "chromecast.onboarding.inProgress") }
             if setup, let data = UserDefaults.standard.data(forKey: "chromecast.onboarding.backup"),
