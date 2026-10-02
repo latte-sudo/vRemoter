@@ -18,6 +18,7 @@ enum ChromecastSettingsArchive {
     static func restore(_ values: [String: Any]) {
         for key in snapshot().keys { UserDefaults.standard.removeObject(forKey: key) }
         for (key, value) in values where allowed(key) { UserDefaults.standard.set(value, forKey: key) }
+        RemoteMappingStore.shared.reload()
     }
     static func exportData() throws -> Data {
         try PropertyListSerialization.data(fromPropertyList: ["schemaVersion": version,

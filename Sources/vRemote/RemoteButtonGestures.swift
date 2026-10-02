@@ -13,6 +13,8 @@ struct RemoteGestureConfiguration: Equatable {
     var hasDoubleClick = false
     var hasLongPress = false
     var repeatsWhileHeld = false
+    /// Only continuous actions (such as scrolling) repeat after a long press.
+    var repeatsLongPress = false
     var doubleClickInterval: TimeInterval = 0.30
     var longPressInterval: TimeInterval = 0.55
     var repeatDelay: TimeInterval = 0.45
@@ -31,6 +33,9 @@ enum RemoteGestureEvent: Equatable {
     case repeatKeyDown
     /// Deferred gestures produce one balanced down/up pair, or one app launch.
     case trigger(RemoteButtonGesture)
+    case longPressDown
+    case repeatLongPress
+    case longPressUp
 }
 
 /// A deterministic, clock-injected recognizer. It has no timers or macOS APIs,
@@ -43,6 +48,7 @@ struct RemoteButtonGestureRecognizer {
     private var nextRepeatAt: TimeInterval?
     private var isSecondClick = false
     private var longPressFired = false
+    private var longPressIsDown = false
     private var keyIsDown = false
 
     init(configuration: RemoteGestureConfiguration) {
@@ -82,6 +88,14 @@ struct RemoteButtonGestureRecognizer {
 
     mutating func release(at time: TimeInterval) -> [RemoteGestureEvent] {
         guard isPressed else { return [] }
+        // A release must never emit a stale repeat just because the timer was late.
+        nextRepeatAt = nil
+        // A continuous action never starts after its physical hold has ended,
+        // even when the main run loop did not deliver the threshold timer.
+        if configuration.hasLongPress, configuration.repeatsLongPress,
+           let pressedAt, time >= pressedAt + configuration.longPressInterval {
+            longPressFired = true
+        }
         var events = advance(to: time)
         isPressed = false
         pressedAt = nil
@@ -89,6 +103,9 @@ struct RemoteButtonGestureRecognizer {
         if keyIsDown {
             keyIsDown = false
             events.append(.keyUp)
+        } else if longPressIsDown {
+            longPressIsDown = false
+            events.append(.longPressUp)
         } else if !longPressFired {
             if configuration.hasDoubleClick {
                 if isSecondClick {
@@ -120,12 +137,18 @@ struct RemoteButtonGestureRecognizer {
            time >= pressedAt + configuration.longPressInterval {
             longPressFired = true
             isSecondClick = false
-            events.append(.trigger(.longPress))
+            if configuration.repeatsLongPress {
+                longPressIsDown = true
+                events.append(.longPressDown)
+                nextRepeatAt = time + configuration.repeatInterval
+            } else {
+                events.append(.trigger(.longPress))
+            }
         }
         if isPressed, let deadline = nextRepeatAt, time >= deadline {
             // A late timer emits one repeat, never a burst of stale repeats.
             nextRepeatAt = time + configuration.repeatInterval
-            events.append(.repeatKeyDown)
+            events.append(longPressFired ? .repeatLongPress : .repeatKeyDown)
         }
         return events
     }
@@ -133,13 +156,17 @@ struct RemoteButtonGestureRecognizer {
     /// Disconnect, disable, settings edits and stop discard deferred actions,
     /// but always release a synthetic key that has already been pressed.
     mutating func cancel() -> [RemoteGestureEvent] {
-        let events: [RemoteGestureEvent] = keyIsDown ? [.keyUp] : []
+        let events: [RemoteGestureEvent]
+        if keyIsDown { events = [.keyUp] }
+        else if longPressIsDown { events = [.longPressUp] }
+        else { events = [] }
         isPressed = false
         pressedAt = nil
         pendingClickDeadline = nil
         nextRepeatAt = nil
         isSecondClick = false
         longPressFired = false
+        longPressIsDown = false
         keyIsDown = false
         return events
     }

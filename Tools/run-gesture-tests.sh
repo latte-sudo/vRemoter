@@ -20,6 +20,13 @@ if [[ "$(uname -s)" == Darwin ]]; then
     "$ROOT/SelfTests/Gestures/RemoteMappingStoreTests.swift" \
     -o "$ROOT/.build/remote-mapping-store-tests"
   "$ROOT/.build/remote-mapping-store-tests"
+  swiftc \
+    "$ROOT/Sources/vRemote/RemoteButtonGestures.swift" \
+    "$ROOT/Sources/vRemote/RemoteMappingSupport.swift" \
+    "$ROOT/Sources/vRemote/RemoteButtonMappingController.swift" \
+    "$ROOT/SelfTests/Gestures/RemoteButtonMappingControllerTests.swift" \
+    -o "$ROOT/.build/remote-mapping-controller-tests"
+  "$ROOT/.build/remote-mapping-controller-tests"
 else
-  printf '%s\n' 'SKIP: AppKit mapping-store tests require macOS; pure gesture tests ran above.'
+  printf '%s\n' 'SKIP: AppKit mapping-store/controller tests require macOS; pure gesture tests ran above.'
 fi

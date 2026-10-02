@@ -21,6 +21,7 @@ struct RemoteButtonGestureTests {
         combinedGestures()
         repeatAndConflict()
         cancelAndReconnect()
+        continuousLongPress()
         try codableActions()
         print("PASS: \(assertions) ordinary-button gesture assertions")
     }
@@ -146,6 +147,54 @@ struct RemoteButtonGestureTests {
         expect(deferred.advance(to: 3), [], "No long gesture executes after cancel")
         expect(deferred.isIdle, true, "Canceled recognizer is idle")
         expect(deferred.nextDeadline, nil, "Canceled recognizer has no timers")
+    }
+
+    static func continuousLongPress() {
+        let configuration = RemoteGestureConfiguration(hasLongPress: true, repeatsLongPress: true)
+        var boundary = RemoteButtonGestureRecognizer(configuration: configuration)
+        _ = boundary.press(at: 0)
+        expect(boundary.advance(to: 0.55), [.longPressDown], "Continuous action starts exactly at 550 ms")
+        expect(boundary.release(at: 0.55), [.longPressUp], "Threshold release balances a started action")
+        var unstartedBoundary = RemoteButtonGestureRecognizer(configuration: configuration)
+        _ = unstartedBoundary.press(at: 0)
+        expect(unstartedBoundary.release(at: 0.55), [], "Release at threshold never starts an undelivered scroll")
+        var recognizer = RemoteButtonGestureRecognizer(configuration: configuration)
+        expect(recognizer.press(at: 0), [], "Continuous long action waits")
+        expect(recognizer.release(at: 0.2), [.trigger(.click)], "Short press remains a single click")
+        for cycle in 0..<20 {
+            let start = Double(cycle) * 10 + 1
+            expect(recognizer.press(at: start), [], "Repeated hold begins cleanly")
+            expect(recognizer.advance(to: start + 0.54), [], "No premature scroll")
+            expect(recognizer.advance(to: start + 0.56), [.longPressDown], "One scroll start at threshold")
+            expect(recognizer.press(at: start + 0.57), [], "Duplicate down does not restart scroll")
+            expect(recognizer.advance(to: start + 0.64), [.repeatLongPress], "Scroll repeats while held")
+            expect(recognizer.advance(to: start + 5), [.repeatLongPress], "Delayed scroll has no backlog")
+            expect(recognizer.release(at: start + 6), [.longPressUp], "Release discards overdue repeat")
+            expect(recognizer.nextDeadline, nil, "Release leaves no scroll timer")
+            expect(recognizer.advance(to: start + 7), [], "No scroll after release")
+        }
+        _ = recognizer.press(at: 300)
+        expect(recognizer.release(at: 301), [], "Late threshold timer cannot start scroll on release")
+        expect(recognizer.nextDeadline, nil, "Late release leaves no timer")
+        _ = recognizer.press(at: 302)
+        _ = recognizer.advance(to: 303)
+        expect(recognizer.cancel(), [.longPressUp], "Cancel balances active long scroll")
+        expect(recognizer.cancel(), [], "Second cancel is inert")
+        expect(recognizer.advance(to: 304), [], "Canceled scroll never restarts")
+        _ = recognizer.press(at: 305)
+        expect(recognizer.cancel(), [], "Cancel before threshold never starts scroll")
+
+        var combined = RemoteButtonGestureRecognizer(configuration: .init(hasDoubleClick: true, hasLongPress: true, repeatsLongPress: true))
+        _ = combined.press(at: 0)
+        _ = combined.release(at: 0.05)
+        _ = combined.press(at: 0.15)
+        expect(combined.advance(to: 0.75), [.longPressDown], "Second tap hold starts scroll")
+        expect(combined.release(at: 2), [.longPressUp], "Second tap hold ends without click or double")
+        expect(combined.advance(to: 3), [], "No deferred click after combined scroll")
+
+        var immediate = RemoteButtonGestureRecognizer(configuration: .init(repeatsWhileHeld: true))
+        _ = immediate.press(at: 0)
+        expect(immediate.release(at: 5), [.keyUp], "Release also suppresses overdue ordinary repeats")
     }
 
     static func codableActions() throws {

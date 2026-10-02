@@ -8,7 +8,7 @@ macOS, Chromecast Voice Remote only. The existing ATVV codec and transport remai
 
 1. **First-run setup**: welcome → connect HID/BLE → permission status → virtual audio device → “你准备在哪个工具里说话？” → actual speech test → ordinary keys → finish. Progress resumes; original configuration is backed up across restarts; Cancel restores it. Back and retest are available. Changing the tool/route invalidates the attempt. Audio receipt and ended session are machine-observed, while recognition content is explicitly user-confirmed, not automatically authenticated.
 2. **Connection and voice**: selected virtual output by persistent UID, safe gain, input meter, route diagnostics and one-second test tone; Doubao or custom input tool; independent remote hold/toggle and target shortcut hold/toggle settings. A test tone is not a transcription test. No system-default microphone changes. Missing selected device fails closed.
-3. **Button configuration**: clickable front/side Chromecast image, observed HID highlight, single/double/long gestures, shortcut recording, application launch, disabled actions, auto-save and reset. Voice key is reserved for the session controller. Additional gestures suspend repeat; without extra gestures, ordinary key down/up is immediate. IR-configured volume/power/input buttons may not reach the Mac.
+3. **Button configuration**: clickable front/side Chromecast image, observed HID highlight, single/double/long gestures, shortcut recording, application launch, disabled actions, auto-save and reset. Voice key is reserved for the session controller. Additional gestures suspend ordinary-click repeat; four-direction long-press scrolling has its own release-bound repeat; without extra gestures, ordinary key down/up is immediate. IR-configured volume/power/input buttons may not reach the Mac.
 4. **Settings/diagnostics**: login item, permissions, version, repeat setup, bounded version-1 configuration import/export, reset with undo and connection/audio counters. Archives omit pairing, credentials, logs, recordings and permissions.
 
 ## Verification
@@ -49,3 +49,9 @@ See [audio resource lifecycle](chromecast-audio-resource-lifecycle.md) for the i
 ## Six-item feedback corrections
 
 See [feedback correction batch](CHROMECAST_FEEDBACK_FIXES.md) for the mapping overview, voice terminology, repeated-cycle transport repair, permission feedback, application launcher, Dock preference, and exact verification boundaries.
+
+## Application switching and continuous scrolling
+
+See [mapping action behavior and validation](CHROMECAST_SCROLL_ACTIONS.md) for
+Command+Tab, direction-scroll mappings, safe default migration and interrupted
+hold tests. Deferred remote/computer identity binding is tracked in [TODO](../TODO.md).

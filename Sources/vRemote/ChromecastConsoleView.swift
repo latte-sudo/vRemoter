@@ -311,12 +311,12 @@ struct ChromecastConsoleView: View {
                     }
                     ChromecastGestureEditor(button: button, gesture: gesture)
                         .id(button.id + gesture.rawValue)
-                    Toggle("此按键按住连发", isOn: Binding(get: {
+                    Toggle("单击动作按住连发", isOn: Binding(get: {
                         mappingStore.holdRepeats(for: button, remote: .chromecast)
                     }, set: {
                         mappingStore.setHoldRepeats($0, for: button, remote: .chromecast)
                     }))
-                    Text("双击或长按动作存在时，按住连发会暂停。只在配置双击时等待第二次点击；未配置额外手势时立即响应。").font(.caption)
+                    Text("双击或长按动作存在时，单击连发会暂停。长按滚动会在 0.55 秒后持续，松开立即停止；可选上、下、左、右。切换应用每次手势只执行一次。").font(.caption)
                 }.padding(16).background(Color.accentColor.opacity(0.08)).cornerRadius(12)
                     .id("chromecast-inline-editor")
             }
@@ -450,6 +450,12 @@ private struct ChromecastGestureEditor: View {
                 ForEach(RemoteMappingTarget.allCases.filter { $0 != .doubaoVoice }) { target in Text(target.title).tag(target) }
             }
             Text(store.targetTitle(for: button, remote: .chromecast, gesture: gesture)).font(.caption).foregroundColor(.secondary)
+            if store.action(for: button, remote: .chromecast, gesture: gesture).isContinuous {
+                Text(gesture == .longPress
+                     ? "长按超过 0.55 秒后持续滚动，松开立即停止，不受单击连发开关影响。"
+                     : "无额外手势时，单击映射按住可持续滚动，不受单击连发开关影响；配置双击或长按后，单击和双击各滚动一步。")
+                    .font(.caption).foregroundColor(.secondary)
+            }
             if let failure = store.lastActionError { Text(failure).font(.caption).foregroundColor(.orange) }
             if !errorText.isEmpty { Text(errorText).font(.caption).foregroundColor(.orange) }
         }.sheet(isPresented: $record) {

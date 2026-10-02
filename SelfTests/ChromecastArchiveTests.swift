@@ -21,6 +21,13 @@ struct ChromecastArchiveTests {
         }
         _ = try ChromecastSettingsArchive.validate(archive([:]))
         _ = try ChromecastSettingsArchive.validate(archive(["remoteMapping.chromecast.03": "arrowUp", "remoteMappingEnabled.chromecast": true]))
+        for target in [RemoteMappingTarget.switchApplications, .scrollUp, .scrollDown, .scrollLeft, .scrollRight] {
+            for suffix in ["", ".doubleClick", ".longPress"] {
+                let key = "remoteMapping.chromecast.0E" + suffix
+                let validated = try ChromecastSettingsArchive.validate(archive([key: target.rawValue]))
+                precondition(validated[key] as? String == target.rawValue)
+            }
+        }
         _ = try ChromecastSettingsArchive.validate(archive([DockVisibilityPreference.key: true]))
         try rejects([DockVisibilityPreference.key: "true"])
         try rejects([DockVisibilityPreference.key: 2])
@@ -41,6 +48,20 @@ struct ChromecastArchiveTests {
         ChromecastSettingsArchive.restore(exported)
         precondition(DockVisibilityPreference.isVisible())
         precondition(AppAppearance.selected() == .dark)
+        // Both new action kinds survive real export, restore, and undo. Each
+        // restore must also notify held-action owners to stop old timers.
+        let mappingStore = RemoteMappingStore.shared
+        let customButton = RemoteProfiles.chromecastButtons.first { $0.id == "0E" }!
+        for target in [RemoteMappingTarget.switchApplications, .scrollUp, .scrollDown, .scrollLeft, .scrollRight] {
+            mappingStore.setTarget(target, for: customButton, remote: .chromecast, gesture: .longPress)
+            let saved = try ChromecastSettingsArchive.validate(ChromecastSettingsArchive.exportData())
+            let revision = mappingStore.revision
+            ChromecastSettingsArchive.restore([:])
+            precondition(mappingStore.revision > revision)
+            precondition(mappingStore.target(for: customButton, remote: .chromecast, gesture: .longPress) == .disabled)
+            ChromecastSettingsArchive.restore(saved)
+            precondition(mappingStore.target(for: customButton, remote: .chromecast, gesture: .longPress) == target)
+        }
         // Archives made before the theme option existed still import as system.
         ChromecastSettingsArchive.restore(try ChromecastSettingsArchive.validate(archive([DockVisibilityPreference.key: true])))
         precondition(AppAppearance.selected() == .system)

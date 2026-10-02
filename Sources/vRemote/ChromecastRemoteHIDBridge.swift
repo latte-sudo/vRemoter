@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import IOKit.hid
 
@@ -63,27 +64,15 @@ final class ChromecastRemoteHIDBridge {
     private var activeDevice: IOHIDDevice?
     private var remappingEnabled = RemoteMappingStore.shared.isEnabled(.chromecast)
     private var lastButtonID: String?
-    private var gestureTimer: Timer?
-    private var mappingObserver: NSObjectProtocol?
-    private var sessions: [String: ButtonSession] = [:]
-
-    private struct ButtonSession {
-        let button: RemoteButtonDefinition
-        let actions: [RemoteButtonGesture: RemoteMappingAction]
-        var recognizer: RemoteButtonGestureRecognizer
-    }
+    private let mappingController = RemoteButtonMappingController()
+    private var sleepObserver: NSObjectProtocol?
 
     func start() {
         stop()
-        mappingObserver = NotificationCenter.default.addObserver(
-            forName: RemoteMappingStore.didChangeNotification,
-            object: RemoteMappingStore.shared,
-            queue: .main
-        ) { [weak self] _ in
-            // Never let deferred clicks execute after a settings change, and
-            // release the old press-time mapping before accepting a new one.
-            self?.cancelGestures()
-        }
+        mappingController.start()
+        sleepObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.willSleepNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.mappingController.cancelHeldActions() }
         let manager = IOHIDManagerCreate(
             kCFAllocatorDefault,
             IOOptionBits(kIOHIDOptionsTypeNone)
@@ -135,6 +124,7 @@ final class ChromecastRemoteHIDBridge {
                 CFRunLoopGetMain(),
                 CFRunLoopMode.commonModes.rawValue
             )
+            mappingController.stop()
             return
         }
         self.manager = manager
@@ -142,10 +132,10 @@ final class ChromecastRemoteHIDBridge {
     }
 
     func stop() {
-        cancelGestures()
-        if let mappingObserver {
-            NotificationCenter.default.removeObserver(mappingObserver)
-            self.mappingObserver = nil
+        mappingController.stop()
+        if let sleepObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(sleepObserver)
+            self.sleepObserver = nil
         }
         activeDevice = nil
         lastButtonID = nil
@@ -184,7 +174,7 @@ final class ChromecastRemoteHIDBridge {
 
     fileprivate func deviceDidRemove(_ device: IOHIDDevice) {
         guard let activeDevice, CFEqual(activeDevice, device) else { return }
-        cancelGestures()
+        mappingController.disconnected()
         lastButtonID = nil
         self.activeDevice = nil
         onConnectionChanged?(false)
@@ -216,81 +206,7 @@ final class ChromecastRemoteHIDBridge {
     }
 
     private func apply(buttonID: String, isDown: Bool) {
-        guard remappingEnabled,
-              let button = RemoteProfiles.chromecastButtons.first(where: { $0.id == buttonID }),
-              button.remappable, !button.voiceControlled
-        else { return }
-
-        let store = RemoteMappingStore.shared
-        if isDown, sessions[buttonID] == nil {
-            let actions = Dictionary(uniqueKeysWithValues: RemoteButtonGesture.allCases.map {
-                ($0, store.action(for: button, remote: .chromecast, gesture: $0))
-            })
-            sessions[buttonID] = ButtonSession(
-                button: button,
-                actions: actions,
-                recognizer: RemoteButtonGestureRecognizer(
-                    configuration: store.gestureConfiguration(for: button, remote: .chromecast)
-                )
-            )
-        }
-        guard var session = sessions[buttonID] else { return }
-        let now = ProcessInfo.processInfo.systemUptime
-        let events = isDown
-            ? session.recognizer.press(at: now)
-            : session.recognizer.release(at: now)
-        sessions[buttonID] = session.recognizer.isIdle ? nil : session
-        dispatch(events, session: session)
-        scheduleGestureTimer()
-    }
-
-    private func dispatch(_ events: [RemoteGestureEvent], session: ButtonSession) {
-        let store = RemoteMappingStore.shared
-        for event in events {
-            switch event {
-            case .keyDown, .keyUp, .repeatKeyDown:
-                guard let action = session.actions[.click] else { continue }
-                store.post(action: action, isDown: event != .keyUp, isRepeat: event == .repeatKeyDown)
-            case .trigger(let gesture):
-                guard let action = session.actions[gesture] else { continue }
-                store.post(action: action, isDown: true)
-                store.post(action: action, isDown: false)
-                print("[CAST-MAP] \(session.button.title) \(gesture.rawValue) -> \(action.title)")
-            }
-        }
-    }
-
-    private func scheduleGestureTimer() {
-        gestureTimer?.invalidate()
-        gestureTimer = nil
-        guard let deadline = sessions.values.compactMap({ $0.recognizer.nextDeadline }).min() else { return }
-        let delay = max(0.001, deadline - ProcessInfo.processInfo.systemUptime)
-        let timer = Timer(timeInterval: delay, repeats: false) { [weak self] _ in
-            self?.advanceGestures()
-        }
-        // Common modes keep releases/gesture deadlines responsive during menus.
-        RunLoop.main.add(timer, forMode: .common)
-        gestureTimer = timer
-    }
-
-    private func advanceGestures() {
-        let now = ProcessInfo.processInfo.systemUptime
-        for buttonID in Array(sessions.keys) {
-            guard var session = sessions[buttonID] else { continue }
-            let events = session.recognizer.advance(to: now)
-            sessions[buttonID] = session.recognizer.isIdle ? nil : session
-            dispatch(events, session: session)
-        }
-        scheduleGestureTimer()
-    }
-
-    private func cancelGestures() {
-        gestureTimer?.invalidate()
-        gestureTimer = nil
-        for var session in sessions.values {
-            let events = session.recognizer.cancel()
-            dispatch(events, session: session)
-        }
-        sessions.removeAll()
+        guard remappingEnabled else { return }
+        mappingController.handle(buttonID: buttonID, isDown: isDown)
     }
 }

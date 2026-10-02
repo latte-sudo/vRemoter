@@ -121,6 +121,11 @@ enum RemoteMappingTarget: String, CaseIterable, Identifiable, Codable, Hashable 
     case playPause
     case showDesktop
     case spotlight
+    case switchApplications
+    case scrollUp
+    case scrollDown
+    case scrollLeft
+    case scrollRight
     case commandC
     case commandV
     case commandZ
@@ -152,6 +157,11 @@ enum RemoteMappingTarget: String, CaseIterable, Identifiable, Codable, Hashable 
         case .playPause: L10n.text("播放/暂停", "Play / Pause")
         case .showDesktop: L10n.text("显示桌面", "Show Desktop")
         case .spotlight: "Spotlight (⌘Space)"
+        case .switchApplications: L10n.text("切换应用 (⌘Tab)", "Switch applications (⌘Tab)")
+        case .scrollUp: L10n.text("向上滚动", "Scroll up")
+        case .scrollDown: L10n.text("向下滚动", "Scroll down")
+        case .scrollLeft: L10n.text("向左滚动", "Scroll left")
+        case .scrollRight: L10n.text("向右滚动", "Scroll right")
         case .commandC: L10n.text("复制 (⌘C)", "Copy (⌘C)")
         case .commandV: L10n.text("粘贴 (⌘V)", "Paste (⌘V)")
         case .commandZ: L10n.text("撤销 (⌘Z)", "Undo (⌘Z)")
@@ -196,7 +206,15 @@ enum RemoteMappingTarget: String, CaseIterable, Identifiable, Codable, Hashable 
 
     func post(isDown: Bool, isRepeat: Bool = false) {
         guard self != .disabled, self != .doubaoVoice else { return }
-        if let keyboard {
+        if self == .switchApplications {
+            // A complete shortcut per gesture: never leave Command held for
+            // the remote's physical hold, and never repeat app switches.
+            guard isDown, !isRepeat else { return }
+            for event in Self.applicationSwitchEvents() { event.post(tap: .cghidEventTap) }
+        } else if scrollDelta != nil {
+            guard isDown else { return }
+            scrollEvent()?.post(tap: .cghidEventTap)
+        } else if let keyboard {
             let source = CGEventSource(stateID: .hidSystemState)
             guard let event = CGEvent(
                 keyboardEventSource: source,
@@ -210,6 +228,48 @@ enum RemoteMappingTarget: String, CaseIterable, Identifiable, Codable, Hashable 
         } else if let mediaKey, isDown {
             postMediaKey(mediaKey)
         }
+    }
+
+    /// Build the entire balanced sequence before posting any part. If event
+    /// allocation fails, no modifier is pressed. Exposed for non-posting tests.
+    static func applicationSwitchEvents() -> [CGEvent] {
+        let source = CGEventSource(stateID: .hidSystemState)
+        let strokes: [(CGKeyCode, Bool, CGEventFlags)] = [
+            (0x37, true, .maskCommand),
+            (0x30, true, .maskCommand),
+            (0x30, false, .maskCommand),
+            (0x37, false, [])
+        ]
+        var events = [CGEvent]()
+        for (keyCode, isDown, flags) in strokes {
+            guard let event = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: isDown) else { return [] }
+            event.flags = flags
+            event.setIntegerValueField(.keyboardEventAutorepeat, value: 0)
+            event.setIntegerValueField(.eventSourceUserData, value: Key.syntheticMarker)
+            events.append(event)
+        }
+        return events
+    }
+
+    /// Positive deltas move the viewport up/left; use wheel 2 for horizontal.
+    var scrollDelta: (vertical: Int32, horizontal: Int32)? {
+        switch self {
+        case .scrollUp: (20, 0)
+        case .scrollDown: (-20, 0)
+        case .scrollLeft: (0, 20)
+        case .scrollRight: (0, -20)
+        default: nil
+        }
+    }
+
+    func scrollEvent() -> CGEvent? {
+        guard let delta = scrollDelta else { return nil }
+        let event = CGEvent(scrollWheelEvent2Source: CGEventSource(stateID: .hidSystemState),
+                            units: .pixel, wheelCount: 2, wheel1: delta.vertical, wheel2: delta.horizontal, wheel3: 0)
+        event?.flags = []
+        event?.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
+        event?.setIntegerValueField(.eventSourceUserData, value: Key.syntheticMarker)
+        return event
     }
 
     private func postMediaKey(_ key: Int32) {
@@ -306,8 +366,10 @@ struct RemoteMappingAction {
         }
     }
 
+    var isContinuous: Bool { target.scrollDelta != nil }
+
     var canRepeat: Bool {
-        target.keyboard != nil || target.mediaKey != nil || (target == .custom && shortcut != nil)
+        isContinuous || target.keyboard != nil || target.mediaKey != nil || (target == .custom && shortcut != nil)
     }
 
     var title: String {
@@ -355,7 +417,37 @@ final class RemoteMappingStore: ObservableObject {
     private let repeatPrefix = "remoteMappingHoldRepeat."
 
     // Injectable defaults make migration/reset behavior independently testable.
-    init(defaults: UserDefaults = .standard) { self.defaults = defaults }
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        installUncustomizedDirectionDefaults()
+    }
+
+    /// Seed only untouched direction buttons. Any existing per-gesture action,
+    /// payload or repeat preference is a customization, including Disabled.
+    /// Storing the default makes later edits and archive round trips stable.
+    private func installUncustomizedDirectionDefaults() {
+        let targets: [String: RemoteMappingTarget] = [
+            "03": .scrollUp, "04": .scrollDown, "05": .scrollLeft, "06": .scrollRight
+        ]
+        for button in RemoteProfiles.chromecastButtons {
+            guard let target = targets[button.id] else { continue }
+            var keys = RemoteButtonGesture.allCases.flatMap { gesture in
+                [prefix, customPrefix, applicationPrefix].map {
+                    key($0, button: button, remote: .chromecast, gesture: gesture)
+                }
+            }
+            keys.append(repeatPrefix + "chromecast." + button.id)
+            guard keys.allSatisfy({ defaults.object(forKey: $0) == nil }) else { continue }
+            defaults.set(target.rawValue,
+                         forKey: key(prefix, button: button, remote: .chromecast, gesture: .longPress))
+        }
+    }
+
+    /// Import/undo changes UserDefaults directly; notify active gestures too.
+    func reload() {
+        installUncustomizedDirectionDefaults()
+        changed()
+    }
 
     private func changed() {
         revision += 1
@@ -449,7 +541,9 @@ final class RemoteMappingStore: ObservableObject {
         RemoteGestureConfiguration(
             hasDoubleClick: action(for: button, remote: remote, gesture: .doubleClick).isConfigured,
             hasLongPress: action(for: button, remote: remote, gesture: .longPress).isConfigured,
-            repeatsWhileHeld: holdRepeats(for: button, remote: remote) && action(for: button, remote: remote).canRepeat
+            repeatsWhileHeld: action(for: button, remote: remote).isContinuous ||
+                (holdRepeats(for: button, remote: remote) && action(for: button, remote: remote).canRepeat),
+            repeatsLongPress: action(for: button, remote: remote, gesture: .longPress).isContinuous
         )
     }
 
@@ -457,7 +551,7 @@ final class RemoteMappingStore: ObservableObject {
         let configuration = gestureConfiguration(for: button, remote: remote)
         guard holdRepeats(for: button, remote: remote),
               configuration.hasDoubleClick || configuration.hasLongPress else { return nil }
-        return L10n.text("已暂停按住连发：双击或长按映射优先。", "Hold repeat is suspended while double-click or long-press mappings are assigned.")
+        return L10n.text("已暂停单击按住连发：双击或长按映射优先；长按滚动仍会持续。", "Click hold-repeat is suspended while double-click or long-press mappings are assigned; long-press scrolling remains continuous.")
     }
 
     func post(action: RemoteMappingAction, isDown: Bool, isRepeat: Bool = false) {
@@ -481,6 +575,7 @@ final class RemoteMappingStore: ObservableObject {
             }
             defaults.removeObject(forKey: repeatPrefix + remote.rawValue + "." + button.id)
         }
+        if remote == .chromecast { installUncustomizedDirectionDefaults() }
         changed()
     }
 }
