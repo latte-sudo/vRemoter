@@ -27,10 +27,14 @@ final class ChromecastVoiceSessionController {
     private let setRemoteRouteActive: (Bool) -> Void
     private let triggerDown: (InputTriggerKey) -> Void
     private let triggerUp: (InputTriggerKey) -> Void
+    // Inject scheduling rather than wall-clock sleeps into regression tests.
+    // Production still uses the main queue and identical relative delays.
+    private let schedule: (TimeInterval, DispatchWorkItem) -> Void
 
     private var machine = ChromecastVoiceStateMachine()
     private var started = false
     private var isFinishing = false
+    private var finishEndPulsePending = false
     private var finishReason = ""
     private var finishSendsEndShortcut = false
     private var finishWork: DispatchWorkItem?
@@ -62,13 +66,17 @@ final class ChromecastVoiceSessionController {
         doubaoState: (any DoubaoAudioStateProviding)? = nil,
         setRemoteRouteActive: @escaping (Bool) -> Void = { AudioPipe.shared.setRemoteActive($0) },
         triggerDown: @escaping (InputTriggerKey) -> Void = { Key.triggerDown($0) },
-        triggerUp: @escaping (InputTriggerKey) -> Void = { Key.triggerUp($0) }
+        triggerUp: @escaping (InputTriggerKey) -> Void = { Key.triggerUp($0) },
+        schedule: @escaping (TimeInterval, DispatchWorkItem) -> Void = { delay, work in
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+        }
     ) {
         self.configurationProvider = configurationProvider
         self.doubaoState = doubaoState ?? DoubaoAudioStateMonitor()
         self.setRemoteRouteActive = setRemoteRouteActive
         self.triggerDown = triggerDown
         self.triggerUp = triggerUp
+        self.schedule = schedule
     }
 
     var isActive: Bool { machine.isActive || isFinishing }
@@ -254,7 +262,7 @@ final class ChromecastVoiceSessionController {
                 }
             }
             targetConfirmationWork = verification
-            DispatchQueue.main.asyncAfter(deadline: .now() + Self.targetConfirmationTimeout, execute: verification)
+            schedule(Self.targetConfirmationTimeout, verification)
         }
 
         let timeout = DispatchWorkItem { [weak self] in
@@ -263,7 +271,7 @@ final class ChromecastVoiceSessionController {
             self.publish("录音超时 · 语音已关闭", "Recording timed out · voice closed")
         }
         sessionTimeoutWork = timeout
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.maximumSessionDuration, execute: timeout)
+        schedule(Self.maximumSessionDuration, timeout)
         publish("录音中", "Recording")
     }
 
@@ -303,16 +311,24 @@ final class ChromecastVoiceSessionController {
             self.completeFinishingSession(immediateKeyRelease: false)
         }
         finishWork = finish
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.audioTailDuration, execute: finish)
+        schedule(Self.audioTailDuration, finish)
     }
 
     private func completeFinishingSession(immediateKeyRelease: Bool) {
         guard isFinishing else { return }
         finishWork?.cancel()
         finishWork = nil
+        // A forced stop/new press during the final pulse must only release
+        // it, never send a second stop toggle or report completion twice.
+        if finishEndPulsePending {
+            releaseSyntheticKey()
+            finalizeFinishingSession()
+            return
+        }
         let configuration = sessionConfiguration
         let reason = finishReason
         let sendEndShortcut = finishSendsEndShortcut
+        finishSendsEndShortcut = false
         // Release the old key before clearing its captured configuration.
         releaseSyntheticKey()
         if sendEndShortcut, let configuration, configuration.inputToolTriggerMode == .toggle {
@@ -321,9 +337,25 @@ final class ChromecastVoiceSessionController {
                 || (!targetRecordingConfirmed && ownsTargetShortcut
                     && (reason == "remote release" || reason == "remote press"))
             if shouldSendEnd {
-                tapShortcut(configuration.triggerKey, immediateRelease: immediateKeyRelease)
+                if immediateKeyRelease {
+                    tapShortcut(configuration.triggerKey, immediateRelease: true)
+                } else {
+                    finishEndPulsePending = true
+                    tapShortcut(configuration.triggerKey, onReleased: { [weak self] in
+                        guard let self, self.isFinishing, self.finishEndPulsePending else { return }
+                        self.finalizeFinishingSession()
+                    })
+                    return
+                }
             }
         }
+        finalizeFinishingSession()
+    }
+
+    private func finalizeFinishingSession() {
+        guard isFinishing else { return }
+        let reason = finishReason
+        finishEndPulsePending = false
         ownsTargetShortcut = false
         keyboardOwnsSession = false
         sessionConfiguration = nil
@@ -365,7 +397,7 @@ final class ChromecastVoiceSessionController {
                 self.scheduleOpenRetry(after: 0.05, attempt: attempt + 1)
             }
             openConfirmationWork = confirmation
-            DispatchQueue.main.asyncAfter(deadline: .now() + Self.openConfirmationTimeout, execute: confirmation)
+            schedule(Self.openConfirmationTimeout, confirmation)
         case .alreadyStreaming:
             machine.hostOpenConfirmed()
             cancelOpenWork()
@@ -396,7 +428,7 @@ final class ChromecastVoiceSessionController {
         // Prevent malformed transport responses from scheduling unbounded
         // waits, while honoring BLEBridge's ordinary debounce interval.
         let boundedDelay = delay.isFinite ? min(max(delay, 0.01), 2) : 0.2
-        DispatchQueue.main.asyncAfter(deadline: .now() + boundedDelay, execute: retry)
+        schedule(boundedDelay, retry)
     }
 
     private func failHostOpen() {
@@ -436,21 +468,27 @@ final class ChromecastVoiceSessionController {
         }
     }
 
-    private func tapShortcut(_ key: InputTriggerKey, immediateRelease: Bool = false) {
+    private func tapShortcut(
+        _ key: InputTriggerKey,
+        immediateRelease: Bool = false,
+        onReleased: (() -> Void)? = nil
+    ) {
         releaseSyntheticKey()
         syntheticKey = key
         triggerDown(key)
         if immediateRelease {
             releaseSyntheticKey()
+            onReleased?()
             return
         }
         let pulse = keyPulseGeneration
         let release = DispatchWorkItem { [weak self] in
             guard let self, self.keyPulseGeneration == pulse else { return }
             self.releaseSyntheticKey()
+            onReleased?()
         }
         keyReleaseWork = release
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.shortcutTapDuration, execute: release)
+        schedule(Self.shortcutTapDuration, release)
     }
 
     private func releaseSyntheticKey() {

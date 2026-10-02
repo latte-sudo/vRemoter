@@ -17,7 +17,7 @@ Cloud Linux has no Swift compiler or Apple frameworks. Local `git diff --check` 
 
 The macOS GitHub workflow for remote commit `a66d06491f051784881791673390156aa8981450` passed the application build, original ATVV/ADPCM protocol tests, all first-round model suites, and whitespace checks: [verified run 36978764761](https://github.com/latte-sudo/vRemoter/actions/runs/36978764761).
 
-The subsequent code commit `b37703d7ed9f4ba8eb8da8dd9d800e6a14682667` adds only the admission guard rejecting a voice start without the selected virtual route. Its macOS workflow also passed all build, protocol, model and whitespace steps: [verified run 36979040086](https://github.com/latte-sudo/vRemoter/actions/runs/36979040086). CI is not hardware, recognition, or rendered UI verification.
+The subsequent code commit `b37703d7ed9f4ba8eb8da8dd9d800e6a14682667` adds only the admission guard rejecting a voice start without the selected virtual route. Its macOS workflow also passed all build, protocol, model and whitespace steps: [verified run 36979040086](https://github.com/latte-sudo/vRemoter/actions/runs/36979040086). A subsequent run on the unchanged code exposed a wall-clock-dependent voice test assertion. The follow-up replaces real sleeps with an injected virtual scheduler (including deliberately late delivery), keeps the session in closing state until the final toggle key-up, and repeats the voice suite 20 times in CI. Check the follow-up commit's checks before treating the fix as verified. CI is not hardware, recognition, or rendered UI verification.
 
 Run on macOS:
 

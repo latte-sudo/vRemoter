@@ -50,13 +50,49 @@ func require(_ condition: @autoclosure () -> Bool, _ message: String) {
     print("PASS: \(message)")
 }
 
-func runLoop(for seconds: TimeInterval) {
-    RunLoop.current.run(until: Date().addingTimeInterval(seconds))
+/// A deterministic main-queue clock. Cancellation and work scheduled by other
+/// work use the same semantics as production, without assuming CI wall time.
+final class VirtualScheduler {
+    private struct Entry {
+        let deadline: TimeInterval
+        let order: Int
+        let work: DispatchWorkItem
+    }
+    private var now: TimeInterval = 0
+    private var order = 0
+    private var entries = [Entry]()
+
+    func schedule(after delay: TimeInterval, work: DispatchWorkItem) {
+        entries.append(Entry(deadline: now + delay, order: order, work: work))
+        order += 1
+    }
+
+    func advance(by interval: TimeInterval) {
+        let end = now + interval
+        while let index = nextIndex(through: end) {
+            let entry = entries.remove(at: index)
+            now = max(now, entry.deadline)
+            if !entry.work.isCancelled { entry.work.perform() }
+        }
+        now = end
+    }
+
+    /// Reproduce a stalled main queue: elapsed time alone runs no callbacks.
+    func stall(for interval: TimeInterval) { now += interval }
+    func runReady() { advance(by: 0) }
+
+    private func nextIndex(through deadline: TimeInterval) -> Int? {
+        entries.indices.filter { entries[$0].deadline <= deadline }.min {
+            let lhs = entries[$0], rhs = entries[$1]
+            return lhs.deadline == rhs.deadline ? lhs.order < rhs.order : lhs.deadline < rhs.deadline
+        }
+    }
 }
 
 final class Harness {
     var configuration: VoiceConfiguration
     let monitor = DoubaoAudioStateMonitor()
+    let scheduler = VirtualScheduler()
     var events = [String]()
     var openResults = [RemoteMicrophoneOpenResult]()
     var opens = 0
@@ -68,7 +104,8 @@ final class Harness {
             doubaoState: monitor,
             setRemoteRouteActive: { [unowned self] in self.events.append("route:\($0)") },
             triggerDown: { [unowned self] in self.events.append("down:\($0.rawValue)") },
-            triggerUp: { [unowned self] in self.events.append("up:\($0.rawValue)") }
+            triggerUp: { [unowned self] in self.events.append("up:\($0.rawValue)") },
+            schedule: { [unowned self] delay, work in self.scheduler.schedule(after: delay, work: work) }
         )
         value.onMicrophoneOpenRequested = { [unowned self] bypass in
             require(bypass, "physical release continuation bypasses debounce")
@@ -142,7 +179,7 @@ for remote in [RemoteVoiceMode.toggle, .hold] {
             h.release()
             require(h.controller.debugSnapshot.phase == "closing" && h.opens == 0, "hold/\(target) closes without host reopen")
         }
-        runLoop(for: 0.23)
+        h.scheduler.advance(by: 0.23)
         require(!h.controller.isActive, "\(remote)/\(target) finishes after bounded audio drain")
         require(h.downs == h.ups, "\(remote)/\(target) releases every injected key")
         require(h.downs == (target == .toggle ? 2 : 1), "\(remote)/\(target) matches target shortcut semantics")
@@ -157,7 +194,7 @@ do {
     h.press()
     h.release()
     h.controller.disconnected()
-    runLoop(for: 0.08)
+    h.scheduler.advance(by: 0.08)
     require(h.opens == 1, "disconnect cancels scheduled reopen")
     require(h.downs == h.ups && !h.controller.isActive, "disconnect synchronously releases held shortcut")
     h.controller.remoteAudioStarted(reason: 0)
@@ -221,7 +258,7 @@ do {
     h.openResults = [.retryAfter(0.01), .retryAfter(0.01), .failed("busy")]
     h.press()
     h.release()
-    runLoop(for: 0.1)
+    h.scheduler.advance(by: 0.1)
     require(h.opens == 3 && !h.controller.isActive, "host open retries are bounded to three attempts")
     require(h.downs == h.ups, "exhausted retries release held key")
     h.controller.stop()
@@ -232,7 +269,7 @@ do {
     h.release()
     require(h.controller.isActive && h.controller.debugSnapshot.phase == "closing", "settings remain locked while audio tail drains")
     h.press()
-    runLoop(for: 0.16)
+    h.scheduler.advance(by: 0.16)
     require(h.controller.isActive && h.controller.debugSnapshot.phase == "open", "old drain completion cannot close a newer session")
     require(h.events.last == "down:option", "new session's held key survives stale drain callback")
     h.controller.stop()
@@ -243,7 +280,7 @@ do {
     h.monitor.emit(.active)
     h.release()
     h.monitor.emit(.inactive)
-    runLoop(for: 0.23)
+    h.scheduler.advance(by: 0.23)
     require(h.downs == 1, "target stopping during drain is not toggled back on")
     h.controller.stop()
 }
@@ -258,4 +295,65 @@ do {
     let decoded = try JSONDecoder().decode(VoiceConfiguration.self, from: data)
     require(decoded == configuration, "voice configuration round-trips through Codable")
 }
-print("PASS: all Chromecast voice tests completed")
+
+// A busy CI main queue can run the 120ms drain at 230ms or later. The final
+// 60ms toggle pulse starts THEN, so asserting balanced keys merely because
+// 230ms elapsed was incorrect. Verify both stages, including cancellation.
+do {
+    let h = Harness(remote: .toggle, target: .toggle)
+    h.press(); h.release(); h.controller.remoteAudioStarted(reason: 0); h.press(); h.release()
+    h.scheduler.stall(for: 0.23)
+    h.scheduler.runReady()
+    require(h.controller.isActive && h.controller.debugSnapshot.phase == "closing"
+            && h.controller.debugSnapshot.syntheticKeyDown && h.ended == 0,
+            "delayed drain remains closing until final toggle key-up")
+    h.scheduler.advance(by: 0.059)
+    require(h.controller.debugSnapshot.syntheticKeyDown, "final pulse keeps its own 60ms deadline")
+    h.scheduler.advance(by: 0.002)
+    require(h.downs == h.ups && !h.controller.debugSnapshot.syntheticKeyDown
+            && !h.controller.isActive && h.ended == 1,
+            "delayed final pulse releases every injected key before reporting ended")
+    h.controller.stop()
+}
+do {
+    let h = Harness(remote: .hold, target: .toggle)
+    h.press(); h.release()
+    h.scheduler.stall(for: 1)
+    h.scheduler.runReady()
+    h.controller.stop(reason: "quit during final pulse")
+    require(h.downs == h.ups && h.ended == 1, "quit synchronously releases delayed final pulse once")
+    h.scheduler.advance(by: 1)
+    require(h.downs == h.ups, "cancelled pulse callback cannot add a stale key-up")
+}
+
+for interruption in ["settings", "disconnect", "new press"] {
+    let h = Harness(remote: .hold, target: .toggle)
+    h.press(); h.release()
+    h.scheduler.advance(by: 0.12)
+    require(h.controller.isActive && h.controller.debugSnapshot.syntheticKeyDown && h.ended == 0,
+            "\(interruption) starts during final toggle pulse")
+    let oldDowns = h.downs
+    if interruption == "settings" {
+        h.configuration.triggerKey = .command
+        h.controller.configurationChanged()
+    } else if interruption == "disconnect" {
+        h.controller.disconnected()
+    } else {
+        h.configuration.inputToolTriggerMode = .hold
+        h.press()
+    }
+    require(h.ended == 1, "\(interruption) ends old session exactly once")
+    require(h.downs == oldDowns + (interruption == "new press" ? 1 : 0),
+            "\(interruption) never emits duplicate stop toggle")
+    h.scheduler.advance(by: 0.10)
+    if interruption == "new press" {
+        require(h.controller.isActive && h.controller.debugSnapshot.syntheticKeyDown,
+                "old final-pulse callback cannot release newer session's held key")
+    } else {
+        require(!h.controller.isActive && h.downs == h.ups,
+                "\(interruption) leaves no held key or active session")
+    }
+    h.controller.stop()
+    require(h.downs == h.ups, "\(interruption) cleanup balances all keys")
+}
+print("All Chromecast voice regression tests passed.")

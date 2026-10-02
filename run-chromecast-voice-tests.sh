@@ -13,4 +13,12 @@ swiftc \
   "$ROOT/Sources/vRemote/ChromecastVoiceSessionController.swift" \
   "$ROOT/SelfTests/ChromecastVoice/main.swift" \
   -o "$OUTPUT/voice-tests"
-"$OUTPUT/voice-tests"
+RUNS="${VREMOTE_VOICE_TEST_REPETITIONS:-1}"
+if ! [[ "$RUNS" =~ ^[1-9][0-9]*$ ]] || (( RUNS > 100 )); then
+  printf '%s\n' 'VREMOTE_VOICE_TEST_REPETITIONS must be 1...100' >&2
+  exit 2
+fi
+for (( run = 1; run <= RUNS; run++ )); do
+  printf 'Voice regression iteration %s/%s\n' "$run" "$RUNS"
+  "$OUTPUT/voice-tests"
+done
