@@ -36,6 +36,7 @@ final class BLEBridge: NSObject {
     /// Raw ATVV session edges. Unlike `onStreamingChanged`, these preserve
     /// the protocol reason so X6 can distinguish a native hold-to-talk stream
     /// from a host-requested persistent stream.
+    var onPCMReceived: (() -> Void)?
     var onAudioStarted: ((UInt8 /* reason */, Int /* sampleRate */) -> Void)?
     var onAudioStopped: ((UInt8 /* reason */) -> Void)?
     var onMicrophoneOpenFailed: ((UInt16 /* code */) -> Void)?
@@ -605,7 +606,6 @@ extension BLEBridge: CBPeripheralDelegate {
             streamID = sid
             isStreaming = true
             notifyStreaming(true)
-            onAudioStarted?(reason, codec.sampleRate)
             diagFrameCount = 0
             streamFrameCount = 0
             streamSampleCount = 0
@@ -618,6 +618,7 @@ extension BLEBridge: CBPeripheralDelegate {
                 ? WavRecorder.createNext(prefix: recordingPrefix)
                 : nil
             startKeepAliveTimer()
+            onAudioStarted?(reason, codec.sampleRate)
             print(
                 "[\(logTag)] AUDIO_START reason=" +
                 String(format: "0x%02x", reason) +
@@ -713,6 +714,7 @@ extension BLEBridge: CBPeripheralDelegate {
     private func handleAudio(_ data: Data) {
         guard isStreaming, let frame = protocolHandler.decodeAudio(data) else { return }
         if frame.samples.isEmpty { return }
+        onPCMReceived?()
         let framePeak = frame.samples.reduce(into: 0) {
             $0 = max($0, abs(Int($1)))
         }

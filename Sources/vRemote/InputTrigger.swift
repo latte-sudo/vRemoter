@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 
-enum InputTriggerKey: String, CaseIterable, Identifiable {
+enum InputTriggerKey: String, Codable, CaseIterable, Identifiable {
     case option
     case command
     case control

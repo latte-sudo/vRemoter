@@ -195,7 +195,7 @@ private enum RemoteImageAsset {
     }
 }
 
-private enum ConsoleModal: Identifiable {
+enum ConsoleModal: Identifiable {
     case permission(PermissionKind)
     case donationPrompt
     case donation
@@ -211,7 +211,7 @@ private enum ConsoleModal: Identifiable {
     }
 }
 
-private enum ConsolePage: String, CaseIterable, Identifiable {
+enum ConsolePage: String, CaseIterable, Identifiable {
     case mixer
     case mapping
 
@@ -233,7 +233,7 @@ private enum ConsolePage: String, CaseIterable, Identifiable {
 }
 
 @MainActor
-private final class ConsoleViewModel: ObservableObject {
+final class ConsoleViewModel: ObservableObject {
     @Published var selectedPage: ConsolePage = CommandLine.arguments.contains(
         "--mapping-window-demo"
     ) ? .mapping : .mixer
@@ -241,7 +241,13 @@ private final class ConsoleViewModel: ObservableObject {
     @Published var hidConnected = false
     @Published var bleConnected = false
     @Published var remoteStreaming = false
-    @Published var macInputEnabled = true
+    @Published var macInputEnabled = false
+    @Published var voiceActive = false
+    @Published var receivedAudioPackets = 0
+    @Published var completedVoiceSessions = 0
+    @Published var lastButtonID: String?
+    var onVoiceConfigurationChanged: (() -> Void)?
+    var onReconnectInputs: (() -> Void)?
     @Published var remoteInputEnabled = true
     @Published var doubaoIsRecording = false
     @Published var doubaoInput = "--"
@@ -428,9 +434,11 @@ private final class ConsoleViewModel: ObservableObject {
 }
 
 final class DebugWindowController: NSWindowController, NSWindowDelegate {
-    private static let windowSize = NSSize(width: 775, height: 658)
+    private static let windowSize = NSSize(width: 980, height: 760)
 
     var onStopMicrophone: (() -> Void)?
+    var onVoiceConfigurationChanged: (() -> Void)?
+    var onReconnectInputs: (() -> Void)?
     var onRestartApp: (() -> Void)?
     var onMacInputEnabledChanged: ((Bool) -> Void)?
     var onRemoteInputEnabledChanged: ((Bool) -> Void)?
@@ -466,6 +474,8 @@ final class DebugWindowController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
         window.delegate = self
 
+        model.onReconnectInputs = { [weak self] in self?.onReconnectInputs?() }
+        model.onVoiceConfigurationChanged = { [weak self] in self?.onVoiceConfigurationChanged?() }
         model.onStopMicrophone = { [weak self] in self?.onStopMicrophone?() }
         model.onRestartApp = { [weak self] in self?.onRestartApp?() }
         model.onMacInputEnabledChanged = { [weak self] enabled in
@@ -481,7 +491,7 @@ final class DebugWindowController: NSWindowController, NSWindowDelegate {
             self?.onRemoteMappingEnabledChanged?(remote, enabled)
         }
         window.contentView = NSHostingView(
-            rootView: StudioMixerView(model: model)
+            rootView: ChromecastConsoleView(model: model)
                 .preferredColorScheme(.dark)
                 .frame(
                     width: windowSize.width,
@@ -533,6 +543,20 @@ final class DebugWindowController: NSWindowController, NSWindowDelegate {
             if let macLevelDB { self.model.macLevelDB = macLevelDB }
             if let remoteLevelDB { self.model.remoteLevelDB = remoteLevelDB }
             self.model.refreshPermissions()
+        }
+    }
+
+    func voiceStateChanged(active: Bool) {
+        model.voiceActive = active
+    }
+
+    func receivedAudioPacket() { model.receivedAudioPackets += 1 }
+
+    func voiceSessionEnded() { model.completedVoiceSessions += 1 }
+    func observedButton(_ id: String) {
+        model.lastButtonID = id
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            if self?.model.lastButtonID == id { self?.model.lastButtonID = nil }
         }
     }
 
@@ -1162,7 +1186,7 @@ private struct MappingRow: View {
     }
 }
 
-private struct KeyboardShortcutCaptureView: View {
+struct KeyboardShortcutCaptureView: View {
     let buttonTitle: String
     let onCancel: () -> Void
     let onSave: (RemoteCustomShortcut) -> Void

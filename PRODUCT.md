@@ -1,3 +1,7 @@
+# Chromecast first-round development
+
+See [current scope](docs/CHROMECAST_FIRST_ROUND.md) and [reuse ledger](docs/REUSE_AND_REPLACEMENT_LEDGER.md). This branch supersedes the original dual-input/X6 product direction below for active runtime and UI.
+
 # vRemoter Product Context
 
 ## Product register

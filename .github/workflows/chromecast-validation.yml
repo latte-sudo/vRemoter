@@ -1,0 +1,20 @@
+name: Chromecast validation
+on:
+  push:
+    branches: [feat/chromecast-first-run]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  build-and-test:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile macOS application
+        run: swift build
+      - name: Protocol regression tests
+        run: zsh run-self-tests.sh
+      - name: First-round model regression tests
+        run: bash Tools/test-chromecast-models.sh
+      - name: Whitespace check
+        run: git diff --check

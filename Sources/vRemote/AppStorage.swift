@@ -31,7 +31,7 @@ enum AppStorage {
         UserDefaults.standard.register(defaults: [
             loggingEnabledKey: false,
             recordingEnabledKey: false,
-            macInputEnabledKey: true,
+            macInputEnabledKey: false,
             remoteInputEnabledKey: true,
             inputTriggerKeyKey: InputTriggerKey.option.rawValue,
         ])

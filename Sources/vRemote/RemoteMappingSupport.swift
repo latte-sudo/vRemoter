@@ -1,5 +1,6 @@
 import AppKit
 import CoreGraphics
+import Combine
 import Foundation
 
 enum SupportedRemoteID: String, CaseIterable, Identifiable, Codable {
@@ -49,6 +50,9 @@ struct RemoteButtonDefinition: Identifiable, Hashable {
 }
 
 enum RemoteProfiles {
+    /// Legacy types remain readable for migration, but only Chromecast is offered.
+    static let activeRemotes: [SupportedRemoteID] = [.chromecast]
+
     static let chromecastButtons: [RemoteButtonDefinition] = [
         .init(id: "03", title: L10n.text("方向上", "Up"), symbol: "arrow.up", defaultTarget: .arrowUp),
         .init(id: "04", title: L10n.text("方向下", "Down"), symbol: "arrow.down", defaultTarget: .arrowDown),
@@ -121,6 +125,7 @@ enum RemoteMappingTarget: String, CaseIterable, Identifiable, Codable, Hashable 
     case commandV
     case commandZ
     case custom
+    case launchApplication
 
     var id: String { rawValue }
 
@@ -151,6 +156,7 @@ enum RemoteMappingTarget: String, CaseIterable, Identifiable, Codable, Hashable 
         case .commandV: L10n.text("粘贴 (⌘V)", "Paste (⌘V)")
         case .commandZ: L10n.text("撤销 (⌘Z)", "Undo (⌘Z)")
         case .custom: L10n.text("录制任意按键…", "Record a key…")
+        case .launchApplication: L10n.text("打开应用…", "Open application…")
         }
     }
 
@@ -188,7 +194,7 @@ enum RemoteMappingTarget: String, CaseIterable, Identifiable, Codable, Hashable 
         }
     }
 
-    func post(isDown: Bool) {
+    func post(isDown: Bool, isRepeat: Bool = false) {
         guard self != .disabled, self != .doubaoVoice else { return }
         if let keyboard {
             let source = CGEventSource(stateID: .hidSystemState)
@@ -198,6 +204,7 @@ enum RemoteMappingTarget: String, CaseIterable, Identifiable, Codable, Hashable 
                 keyDown: isDown
             ) else { return }
             event.flags = keyboard.flags
+            event.setIntegerValueField(.keyboardEventAutorepeat, value: isRepeat ? 1 : 0)
             event.setIntegerValueField(.eventSourceUserData, value: Key.syntheticMarker)
             event.post(tap: .cghidEventTap)
         } else if let mediaKey, isDown {
@@ -231,7 +238,7 @@ struct RemoteCustomShortcut: Codable, Hashable {
     let flags: UInt64
     let label: String
 
-    func post(isDown: Bool) {
+    func post(isDown: Bool, isRepeat: Bool = false) {
         let source = CGEventSource(stateID: .hidSystemState)
         guard let event = CGEvent(
             keyboardEventSource: source,
@@ -239,21 +246,128 @@ struct RemoteCustomShortcut: Codable, Hashable {
             keyDown: isDown
         ) else { return }
         event.flags = CGEventFlags(rawValue: flags)
+        event.setIntegerValueField(.keyboardEventAutorepeat, value: isRepeat ? 1 : 0)
         event.setIntegerValueField(.eventSourceUserData, value: Key.syntheticMarker)
         event.post(tap: .cghidEventTap)
     }
 }
 
+extension RemoteButtonGesture {
+    var title: String {
+        switch self {
+        case .click: L10n.text("单击", "Click")
+        case .doubleClick: L10n.text("双击", "Double click")
+        case .longPress: L10n.text("长按", "Long press")
+        }
+    }
+}
+
+extension RemoteApplicationShortcut {
+    init?(url: URL) {
+        guard url.isFileURL, url.pathExtension.lowercased() == "app",
+              let bundle = Bundle(url: url) else { return nil }
+        self.init(
+            bundleIdentifier: bundle.bundleIdentifier,
+            path: url.standardizedFileURL.path,
+            name: (bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
+                ?? (bundle.object(forInfoDictionaryKey: "CFBundleName") as? String)
+                ?? url.deletingPathExtension().lastPathComponent
+        )
+    }
+
+    var resolvedURL: URL? {
+        let savedURL = URL(fileURLWithPath: path, isDirectory: true)
+        if savedURL.pathExtension.lowercased() == "app",
+           let bundle = Bundle(url: savedURL),
+           bundleIdentifier == nil || bundle.bundleIdentifier == bundleIdentifier {
+            return savedURL
+        }
+        // Launch Services also finds apps moved after the mapping was saved.
+        if let bundleIdentifier {
+            return NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier)
+        }
+        return nil
+    }
+}
+
+/// An immutable press-time snapshot prevents editing a mapping mid-hold from
+/// releasing a different key than the one that was originally pressed.
+struct RemoteMappingAction {
+    let target: RemoteMappingTarget
+    let shortcut: RemoteCustomShortcut?
+    let application: RemoteApplicationShortcut?
+
+    var isConfigured: Bool {
+        switch target {
+        case .disabled, .doubaoVoice: false
+        case .custom: shortcut != nil
+        case .launchApplication: application != nil
+        default: true
+        }
+    }
+
+    var canRepeat: Bool {
+        target.keyboard != nil || target.mediaKey != nil || (target == .custom && shortcut != nil)
+    }
+
+    var title: String {
+        if target == .custom, let shortcut { return shortcut.label }
+        if target == .launchApplication, let application { return application.name }
+        return target.title
+    }
+
+    func post(isDown: Bool, isRepeat: Bool = false, onError: @escaping (String) -> Void = { _ in }) {
+        if target == .custom {
+            shortcut?.post(isDown: isDown, isRepeat: isRepeat)
+        } else if target == .launchApplication {
+            guard isDown, !isRepeat else { return }
+            guard let application, let url = application.resolvedURL else {
+                onError(L10n.text("找不到映射的应用，请重新选择。", "Mapped application is unavailable. Choose it again."))
+                return
+            }
+            NSWorkspace.shared.openApplication(
+                at: url,
+                configuration: NSWorkspace.OpenConfiguration()
+            ) { _, error in
+                if let error {
+                    DispatchQueue.main.async {
+                        onError(L10n.text("无法打开应用：", "Could not open application: ") + error.localizedDescription)
+                    }
+                }
+            }
+        } else {
+            target.post(isDown: isDown, isRepeat: isRepeat)
+        }
+    }
+}
+
 final class RemoteMappingStore: ObservableObject {
     static let shared = RemoteMappingStore()
+    static let didChangeNotification = Notification.Name("vRemote.remoteMappingDidChange")
 
     @Published private(set) var revision = 0
-    private let defaults = UserDefaults.standard
+    @Published private(set) var lastActionError: String?
+    private let defaults: UserDefaults
     private let prefix = "remoteMapping."
     private let enabledPrefix = "remoteMappingEnabled."
     private let customPrefix = "remoteCustomMapping."
+    private let applicationPrefix = "remoteApplicationMapping."
+    private let repeatPrefix = "remoteMappingHoldRepeat."
 
-    private init() {}
+    // Injectable defaults make migration/reset behavior independently testable.
+    init(defaults: UserDefaults = .standard) { self.defaults = defaults }
+
+    private func changed() {
+        revision += 1
+        lastActionError = nil
+        NotificationCenter.default.post(name: Self.didChangeNotification, object: self)
+    }
+
+    private func key(_ prefix: String, button: RemoteButtonDefinition, remote: SupportedRemoteID, gesture: RemoteButtonGesture) -> String {
+        // Keep the exact legacy click key so existing custom mappings survive.
+        let suffix = gesture == .click ? "" : "." + gesture.rawValue
+        return prefix + remote.rawValue + "." + button.id + suffix
+    }
 
     func isEnabled(_ remote: SupportedRemoteID) -> Bool {
         defaults.bool(forKey: enabledPrefix + remote.rawValue)
@@ -261,90 +375,112 @@ final class RemoteMappingStore: ObservableObject {
 
     func setEnabled(_ enabled: Bool, for remote: SupportedRemoteID) {
         defaults.set(enabled, forKey: enabledPrefix + remote.rawValue)
-        revision += 1
+        changed()
     }
 
-    func target(
-        for button: RemoteButtonDefinition,
-        remote: SupportedRemoteID
-    ) -> RemoteMappingTarget {
-        guard !button.voiceControlled else { return .doubaoVoice }
+    func target(for button: RemoteButtonDefinition, remote: SupportedRemoteID, gesture: RemoteButtonGesture = .click) -> RemoteMappingTarget {
+        guard !button.voiceControlled else { return gesture == .click ? .doubaoVoice : .disabled }
         guard button.remappable else { return .disabled }
-        let key = prefix + remote.rawValue + "." + button.id
-        guard let raw = defaults.string(forKey: key),
-              let target = RemoteMappingTarget(rawValue: raw)
-        else { return button.defaultTarget }
+        guard let raw = defaults.string(forKey: key(prefix, button: button, remote: remote, gesture: gesture)),
+              let target = RemoteMappingTarget(rawValue: raw), target != .doubaoVoice
+        else { return gesture == .click ? button.defaultTarget : .disabled }
         return target
     }
 
-    func setTarget(
-        _ target: RemoteMappingTarget,
-        for button: RemoteButtonDefinition,
-        remote: SupportedRemoteID
-    ) {
-        guard !button.voiceControlled, button.remappable else { return }
-        defaults.set(
-            target.rawValue,
-            forKey: prefix + remote.rawValue + "." + button.id
-        )
-        revision += 1
+    func setTarget(_ target: RemoteMappingTarget, for button: RemoteButtonDefinition, remote: SupportedRemoteID, gesture: RemoteButtonGesture = .click) {
+        guard !button.voiceControlled, button.remappable, target != .doubaoVoice else { return }
+        defaults.set(target.rawValue, forKey: key(prefix, button: button, remote: remote, gesture: gesture))
+        changed()
     }
 
-    func customShortcut(
-        for button: RemoteButtonDefinition,
-        remote: SupportedRemoteID
-    ) -> RemoteCustomShortcut? {
-        let key = customPrefix + remote.rawValue + "." + button.id
-        guard let data = defaults.data(forKey: key) else { return nil }
+    func customShortcut(for button: RemoteButtonDefinition, remote: SupportedRemoteID, gesture: RemoteButtonGesture = .click) -> RemoteCustomShortcut? {
+        guard !button.voiceControlled, button.remappable,
+              let data = defaults.data(forKey: key(customPrefix, button: button, remote: remote, gesture: gesture)) else { return nil }
         return try? JSONDecoder().decode(RemoteCustomShortcut.self, from: data)
     }
 
-    func setCustomShortcut(
-        _ shortcut: RemoteCustomShortcut,
-        for button: RemoteButtonDefinition,
-        remote: SupportedRemoteID
-    ) {
-        let key = customPrefix + remote.rawValue + "." + button.id
-        if let data = try? JSONEncoder().encode(shortcut) {
-            defaults.set(data, forKey: key)
-            setTarget(.custom, for: button, remote: remote)
+    func setCustomShortcut(_ shortcut: RemoteCustomShortcut, for button: RemoteButtonDefinition, remote: SupportedRemoteID, gesture: RemoteButtonGesture = .click) {
+        guard !button.voiceControlled, button.remappable,
+              let data = try? JSONEncoder().encode(shortcut) else { return }
+        defaults.set(data, forKey: key(customPrefix, button: button, remote: remote, gesture: gesture))
+        setTarget(.custom, for: button, remote: remote, gesture: gesture)
+    }
+
+    func application(for button: RemoteButtonDefinition, remote: SupportedRemoteID, gesture: RemoteButtonGesture = .click) -> RemoteApplicationShortcut? {
+        guard !button.voiceControlled, button.remappable,
+              let data = defaults.data(forKey: key(applicationPrefix, button: button, remote: remote, gesture: gesture)) else { return nil }
+        return try? JSONDecoder().decode(RemoteApplicationShortcut.self, from: data)
+    }
+
+    func setApplication(_ application: RemoteApplicationShortcut, for button: RemoteButtonDefinition, remote: SupportedRemoteID, gesture: RemoteButtonGesture = .click) {
+        guard !button.voiceControlled, button.remappable,
+              let data = try? JSONEncoder().encode(application) else { return }
+        defaults.set(data, forKey: key(applicationPrefix, button: button, remote: remote, gesture: gesture))
+        setTarget(.launchApplication, for: button, remote: remote, gesture: gesture)
+    }
+
+    func action(for button: RemoteButtonDefinition, remote: SupportedRemoteID, gesture: RemoteButtonGesture = .click) -> RemoteMappingAction {
+        RemoteMappingAction(
+            target: target(for: button, remote: remote, gesture: gesture),
+            shortcut: customShortcut(for: button, remote: remote, gesture: gesture),
+            application: application(for: button, remote: remote, gesture: gesture)
+        )
+    }
+
+    func targetTitle(for button: RemoteButtonDefinition, remote: SupportedRemoteID, gesture: RemoteButtonGesture = .click) -> String {
+        action(for: button, remote: remote, gesture: gesture).title
+    }
+
+    /// The stored preference is preserved while advanced gestures suspend it.
+    func holdRepeats(for button: RemoteButtonDefinition, remote: SupportedRemoteID) -> Bool {
+        guard !button.voiceControlled, button.remappable else { return false }
+        let repeatKey = repeatPrefix + remote.rawValue + "." + button.id
+        if defaults.object(forKey: repeatKey) != nil { return defaults.bool(forKey: repeatKey) }
+        return [.arrowUp, .arrowDown, .arrowLeft, .arrowRight, .volumeUp, .volumeDown].contains(button.defaultTarget)
+    }
+
+    func setHoldRepeats(_ enabled: Bool, for button: RemoteButtonDefinition, remote: SupportedRemoteID) {
+        guard !button.voiceControlled, button.remappable else { return }
+        defaults.set(enabled, forKey: repeatPrefix + remote.rawValue + "." + button.id)
+        changed()
+    }
+
+    func gestureConfiguration(for button: RemoteButtonDefinition, remote: SupportedRemoteID) -> RemoteGestureConfiguration {
+        RemoteGestureConfiguration(
+            hasDoubleClick: action(for: button, remote: remote, gesture: .doubleClick).isConfigured,
+            hasLongPress: action(for: button, remote: remote, gesture: .longPress).isConfigured,
+            repeatsWhileHeld: holdRepeats(for: button, remote: remote) && action(for: button, remote: remote).canRepeat
+        )
+    }
+
+    func repeatConflictDescription(for button: RemoteButtonDefinition, remote: SupportedRemoteID) -> String? {
+        let configuration = gestureConfiguration(for: button, remote: remote)
+        guard holdRepeats(for: button, remote: remote),
+              configuration.hasDoubleClick || configuration.hasLongPress else { return nil }
+        return L10n.text("已暂停按住连发：双击或长按映射优先。", "Hold repeat is suspended while double-click or long-press mappings are assigned.")
+    }
+
+    func post(action: RemoteMappingAction, isDown: Bool, isRepeat: Bool = false) {
+        if isDown, !isRepeat { lastActionError = nil }
+        action.post(isDown: isDown, isRepeat: isRepeat) { [weak self] error in
+            self?.lastActionError = error
+            print("[CAST-MAP] " + error)
         }
     }
 
-    func targetTitle(
-        for button: RemoteButtonDefinition,
-        remote: SupportedRemoteID
-    ) -> String {
-        let value = target(for: button, remote: remote)
-        if value == .custom,
-           let shortcut = customShortcut(for: button, remote: remote) {
-            return shortcut.label
-        }
-        return value.title
-    }
-
-    func post(
-        button: RemoteButtonDefinition,
-        remote: SupportedRemoteID,
-        isDown: Bool
-    ) {
-        let value = target(for: button, remote: remote)
-        if value == .custom {
-            customShortcut(for: button, remote: remote)?.post(isDown: isDown)
-        } else {
-            value.post(isDown: isDown)
-        }
+    func post(button: RemoteButtonDefinition, remote: SupportedRemoteID, isDown: Bool, gesture: RemoteButtonGesture = .click) {
+        post(action: action(for: button, remote: remote, gesture: gesture), isDown: isDown)
     }
 
     func reset(_ remote: SupportedRemoteID) {
         for button in RemoteProfiles.buttons(for: remote) {
-            defaults.removeObject(
-                forKey: prefix + remote.rawValue + "." + button.id
-            )
-            defaults.removeObject(
-                forKey: customPrefix + remote.rawValue + "." + button.id
-            )
+            for gesture in RemoteButtonGesture.allCases {
+                for storagePrefix in [prefix, customPrefix, applicationPrefix] {
+                    defaults.removeObject(forKey: key(storagePrefix, button: button, remote: remote, gesture: gesture))
+                }
+            }
+            defaults.removeObject(forKey: repeatPrefix + remote.rawValue + "." + button.id)
         }
-        revision += 1
+        changed()
     }
 }
