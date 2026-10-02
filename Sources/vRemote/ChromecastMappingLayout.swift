@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(CoreGraphics)
+import CoreGraphics
+#endif
 
 /// Independent layout for our front-and-side photo. Coordinates refer to the
 /// entire 1024 × 1536 image, not the reference application's different asset.
