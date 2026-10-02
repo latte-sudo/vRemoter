@@ -13,7 +13,11 @@ macOS, Chromecast Voice Remote only. The existing ATVV codec and transport remai
 
 ## Verification
 
-Cloud Linux has no Swift compiler or Apple frameworks. `git diff --check` and script/source checks can run here; Swift application build, deterministic tests and existing codec fixtures run in the macOS GitHub workflow. No build/test pass is claimed until that exact commit's workflow succeeds.
+Cloud Linux has no Swift compiler or Apple frameworks. Local `git diff --check` and shell syntax checks passed.
+
+The macOS GitHub workflow for remote commit `a66d06491f051784881791673390156aa8981450` passed the application build, original ATVV/ADPCM protocol tests, all first-round model suites, and whitespace checks: [verified run 36978764761](https://github.com/latte-sudo/vRemoter/actions/runs/36978764761).
+
+The subsequent code commit `b37703d7ed9f4ba8eb8da8dd9d800e6a14682667` adds only the admission guard rejecting a voice start without the selected virtual route. Its macOS workflow also passed all build, protocol, model and whitespace steps: [verified run 36979040086](https://github.com/latte-sudo/vRemoter/actions/runs/36979040086). CI is not hardware, recognition, or rendered UI verification.
 
 Run on macOS:
 
