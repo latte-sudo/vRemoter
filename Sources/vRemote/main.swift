@@ -181,6 +181,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.updateStatus()
         }
         chromecastBLE.onAudioStarted = { [weak self] reason, _ in
+            guard AudioPipe.shared.isOutputDeviceAvailable else {
+                self?.chromecastSession.forceClose()
+                self?.voiceStatus = "虚拟音频设备不可用，请先选择音频通道"
+                self?.updateStatus()
+                return
+            }
             if reason == 0x03 { self?.debugWindow.observedButton("voice") }
             self?.lastVoiceRemote = .chromecast
             self?.chromecastSession.remoteAudioStarted(reason: reason)
@@ -212,7 +218,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         chromecastSession.onSessionEnded = { [weak self] in self?.debugWindow.voiceSessionEnded() }
         chromecastHID.onButtonObserved = { [weak self] id in self?.debugWindow.observedButton(id) }
         x6SearchSuppressor.onTriggerDownObserved = { [weak self] synthetic in
-            self?.chromecastSession.triggerDownObserved(isSynthetic: synthetic)
+            guard let self, self.chromecastBLEConnected, AudioPipe.shared.isOutputDeviceAvailable else { return }
+            self.chromecastSession.triggerDownObserved(isSynthetic: synthetic)
         }
         x6SearchSuppressor.onTriggerUpObserved = { [weak self] synthetic in
             self?.chromecastSession.triggerUpObserved(isSynthetic: synthetic)
