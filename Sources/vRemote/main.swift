@@ -197,7 +197,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         chromecastBLE.onMicrophoneOpenFailed = { [weak self] code in
             self?.chromecastSession.remoteMicrophoneOpenFailed(code: code)
         }
-        chromecastBLE.onPCMReceived = { [weak self] in self?.debugWindow.receivedAudioPacket() }
+        chromecastBLE.onPCMReceived = { [weak self] in
+            self?.chromecastSession.remotePCMReceived()
+            self?.debugWindow.receivedAudioPacket()
+        }
         chromecastBLE.onLevel = { [weak self] db, _ in
             guard AudioPipe.shared.isRemoteInputEnabled else { return }
             self?.debugWindow.updateRemoteLevel(db)
@@ -232,11 +235,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         chromecastHID.start()
         chromecastBLE.start()
 
-        // Start the loopback engine eagerly so device binding is verified
-        // before the first BLE audio packet arrives.
+        // Discover the selected route eagerly without starting an audio IOProc.
+        // Each session acquires output before sending its target shortcut.
         _ = AudioPipe.shared
         AudioPipe.shared.onMacLevel = { [weak self] db in
             self?.debugWindow.updateMacLevel(db)
+        }
+        AudioPipe.shared.onResourcesInvalidated = { [weak self] in
+            self?.chromecastSession.forceClose()
         }
         AudioPipe.shared.onRouteChanged = { [weak self] _ in
             self?.updateStatus()
@@ -462,6 +468,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.restartAppNow()
         }
         debugWindow.onMacInputEnabledChanged = { [weak self] enabled in
+            self?.chromecastSession.configurationChanged()
             let audio = AudioPipe.shared
             audio.setInputEnabled(
                 mac: enabled,
@@ -470,6 +477,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.updateStatus()
         }
         debugWindow.onRemoteInputEnabledChanged = { [weak self] enabled in
+            self?.chromecastSession.configurationChanged()
             let audio = AudioPipe.shared
             audio.setInputEnabled(
                 mac: audio.isMacInputEnabled,
@@ -478,8 +486,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if !enabled {
                 self?.chromecastBLE.closeMicrophone(force: true)
                 self?.debugWindow.updateRemoteLevel(-120)
-            } else if self?.doubaoAudioState.snapshotNow().isRecording == true {
-                self?.openPreferredRemoteMicrophone()
             }
             self?.updateStatus()
         }

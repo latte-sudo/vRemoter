@@ -91,6 +91,9 @@ final class DoubaoAudioStateMonitor {
     /// the key event reaches Doubao, so the returned value is the old state
     /// that the Option press is about to toggle.
     func snapshotNow() -> Snapshot {
+        // A bounded post-stop query must not leave listeners behind after the
+        // monitor has been stopped (for example during application shutdown).
+        defer { if !started { unbindProcessObject() } }
         refreshBindingIfNeeded()
         return readCurrentSnapshot()
     }

@@ -41,3 +41,7 @@ bash Tools/test-chromecast-models.sh
 - Visual/VoiceOver/keyboard navigation on supported macOS and Intel/Apple Silicon
 
 Hardware, actual microphone/recognition, render QA, signing/notarization and installer distribution are not validated by CI. This is a draft development change, not a release-ready binary.
+
+## Session-scoped audio ownership
+
+See [audio resource lifecycle](chromecast-audio-resource-lifecycle.md) for the idle/start/stop contract, bounded target-stop observation, regression coverage, and remaining macOS/hardware acceptance.

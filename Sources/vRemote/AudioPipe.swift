@@ -37,6 +37,7 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
         qos: .userInteractive
     )
 
+    private let captureQueueKey = DispatchSpecificKey<Bool>()
     private let stateLock = NSLock()
     // Serializes CoreAudio start/stop outside the render state lock. CoreAudio
     // may wait for a render callback while stopping an IOProc.
@@ -54,6 +55,7 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
     private var stopped = false
     private var pendingTestTone: [Float] = []
     private var pendingTestToneIndex = 0
+    private var resourceLease = AudioResourceLease()
     private var mixActive = false
     private var macInputEnabled = AppStorage.macInputEnabled
     private var remoteInputEnabled = AppStorage.remoteInputEnabled
@@ -78,11 +80,14 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
     var onConfigurationChanged: (() -> Void)?
     var onMacLevel: ((Double) -> Void)?
     var onRouteChanged: ((Bool) -> Void)?
+    /// Invoked synchronously when discovery invalidates an active session.
+    var onResourcesInvalidated: (() -> Void)?
     private var macLevelAt = Date.distantPast
     private var captureConfigured = false
 
     private override init() {
         super.init()
+        captureQueue.setSpecific(key: captureQueueKey, value: true)
 
         refreshOutputRoutes()
         installDeviceListListener()
@@ -90,11 +95,8 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
         if ProcessInfo.processInfo.environment["MIA_DIAGNOSTICS"] == "1" {
             startDiagnosticsTimer()
         }
-        if macInputEnabled {
-            requestBuiltInMicAccess()
-        } else {
-            print("[AUDIO] MacBook 麦克风未勾选，不启动采集")
-        }
+        // Discovery and listeners are idle-safe. Physical capture and the
+        // virtual-output IOProc are leased only by an explicit voice session.
     }
 
     // MARK: - Public input API
@@ -117,29 +119,36 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
     /// Kept under the V1 method name so the proven X6 session state machine
     /// remains unchanged. In vRemote, `active` means that the dual-input mix
     /// is open; it no longer selects one microphone over another.
-    func setRemoteActive(_ active: Bool) {
+    @discardableResult
+    func setRemoteActive(_ active: Bool) -> Bool {
+        routeLock.lock()
+        defer { routeLock.unlock() }
+        if !active {
+            return stopOutputDevice()
+        }
+        guard !stopped else { return false }
+        // Validate the saved UID and current stream format before every start.
+        refreshOutputRoutes()
+        if isMixActive { return true }
+        guard stopOutputDevice() else { return false } // Interrupt any tone.
         stateLock.lock()
-        let changed = mixActive != active
-        mixActive = active
-        clearPendingBuffersLocked()
-        if active {
-            pendingTestTone.removeAll(keepingCapacity: true)
-            pendingTestToneIndex = 0
-        }
-        if active, changed {
-            remoteSessionScheduledBuffers = 0
-            remoteSessionRenderedFrames = 0
-            loggedFirstRemoteRender = false
-        }
+        let deviceID = outputDeviceID
+        let route = outputRoute
         stateLock.unlock()
-
-        guard changed else { return }
-        print(
-            active
-                ? "[AUDIO] 语音输出开启 · Chromecast · Mac 混音按设置启用"
-                : "[AUDIO] 语音输出关闭"
-        )
-        onRouteChanged?(active)
+        guard isOutputDeviceAvailable, let deviceID, let route,
+              startOutputDevice(deviceID, route: route) else { return false }
+        stateLock.lock()
+        _ = resourceLease.acquire(.session)
+        mixActive = true
+        remoteSessionScheduledBuffers = 0
+        remoteSessionRenderedFrames = 0
+        loggedFirstRemoteRender = false
+        stateLock.unlock()
+        setMacCaptureEnabled(true)
+        print("[AUDIO] 语音输出开启 · Chromecast · Mac 混音按设置启用")
+        onRouteChanged?(true)
+        notifyConfigurationChanged()
+        return true
     }
 
     func setInputEnabled(mac: Bool, remote: Bool) {
@@ -180,7 +189,9 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
     var isOutputDeviceAvailable: Bool {
         stateLock.lock()
         defer { stateLock.unlock() }
-        return outputDeviceID != nil && outputIOProcID != nil
+        guard outputDeviceID != nil, let route = outputRoute,
+              route.uid == selectedUID, route.isSupported else { return false }
+        return availableRoutes.contains(route)
     }
 
     var outputRoutes: [AudioOutputRoute] {
@@ -243,29 +254,35 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
         stateLock.unlock()
 
         guard let uid else {
-            stopOutputDevice()
+            guard unbindOutputDevice() else { return }
             updateRouteError("未选择虚拟输出设备")
             return
         }
         guard let selected = discovered.first(where: { $0.route.uid == uid }) else {
-            stopOutputDevice()
+            guard unbindOutputDevice() else { return }
             updateRouteError("已保存的输出设备不可用；请连接设备后刷新，或重新选择")
             return
         }
         guard selected.route.isSupported else {
-            stopOutputDevice()
+            guard unbindOutputDevice() else { return }
             updateRouteError(selected.route.unavailableReason)
             return
         }
         if currentID == selected.id, currentRoute == selected.route {
             stateLock.lock()
-            routeError = nil
+            if outputIOProcID == nil || resourceLease.current != nil { routeError = nil }
             stateLock.unlock()
             notifyConfigurationChanged()
             return
         }
-        stopOutputDevice()
-        startOutputDevice(selected.id, route: selected.route)
+        guard unbindOutputDevice() else { return }
+        stateLock.lock()
+        outputDeviceID = selected.id
+        outputRoute = selected.route
+        outputSampleRate = selected.route.sampleRate
+        routeError = nil
+        stateLock.unlock()
+        installBoundRouteListeners(selected.id)
         notifyConfigurationChanged()
     }
 
@@ -285,42 +302,54 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
     /// default input/output and refuses to inject a tone into active dictation.
     @discardableResult
     func playTestTone() -> Bool {
+        routeLock.lock()
+        defer { routeLock.unlock() }
+        guard !stopped, !isMixActive else { return false }
+        refreshOutputRoutes()
+        guard stopOutputDevice() else { return false }
         stateLock.lock()
-        guard outputDeviceID != nil, outputIOProcID != nil else {
-            stateLock.unlock()
+        let deviceID = outputDeviceID
+        let route = outputRoute
+        stateLock.unlock()
+        guard isOutputDeviceAvailable, let deviceID, let route else {
             updateRouteError("测试音未播放：请先选择可用的虚拟输出设备")
             return false
         }
-        guard !mixActive else {
-            stateLock.unlock()
-            updateRouteError("请先结束语音会话，再播放测试音")
-            return false
-        }
-        let rate = outputSampleRate
-        let generation = routeGeneration
-        stateLock.unlock()
-        let tone = AudioRouteConfiguration.testTone(sampleRate: rate)
+        let tone = AudioRouteConfiguration.testTone(sampleRate: route.sampleRate)
+        guard !tone.isEmpty, startOutputDevice(deviceID, route: route) else { return false }
         stateLock.lock()
-        guard !mixActive, generation == routeGeneration, outputDeviceID != nil,
-              !tone.isEmpty else {
-            stateLock.unlock()
-            return false
-        }
+        let token = resourceLease.acquire(.testTone)
         pendingTestTone = tone
         pendingTestToneIndex = 0
         routeError = nil
         stateLock.unlock()
+        // Also bound the lease if the device stops delivering render callbacks.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            self?.finishTestTone(token)
+        }
         notifyConfigurationChanged()
         return true
+    }
+
+    private func finishTestTone(_ token: AudioResourceLease.Token) {
+        routeLock.lock()
+        defer { routeLock.unlock() }
+        stateLock.lock()
+        let owned = resourceLease.release(token)
+        stateLock.unlock()
+        guard owned else { return }
+        stopOutputDevice()
+        notifyConfigurationChanged()
     }
 
     var routeDiagnostics: String {
         stateLock.lock()
         defer { stateLock.unlock() }
         var lines: [String] = []
-        if let route = outputRoute, outputIOProcID != nil {
+        if let route = outputRoute {
             lines.append("输出：\(route.name) · \(Int(route.sampleRate)) Hz · \(route.channelCount) 声道")
             lines.append("UID：\(route.uid)")
+            lines.append(outputIOProcID == nil ? "输出资源：空闲（会话开启时启动）" : "输出资源：已持有")
         } else {
             lines.append("输出未就绪")
             if let selectedUID = selectedUID { lines.append("已选 UID：\(selectedUID)") }
@@ -341,15 +370,12 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
         mixActive = false
         clearPendingBuffersLocked()
         stateLock.unlock()
-        captureQueue.async { [weak self] in
-            guard let self, self.captureSession.isRunning else { return }
-            self.captureSession.stopRunning()
-        }
+        setMacCaptureEnabled(false)
 
         routeLock.lock()
         stopped = true
         removeDeviceListListener()
-        stopOutputDevice()
+        unbindOutputDevice()
         routeLock.unlock()
         stateLock.lock()
         mixActive = false
@@ -360,6 +386,7 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
     // MARK: - Built-in microphone capture
 
     private func requestBuiltInMicAccess() {
+        guard shouldCaptureMac else { return }
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized:
             startBuiltInMicCapture()
@@ -380,13 +407,15 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
     }
 
     private func startBuiltInMicCapture() {
-        guard isMacInputEnabled else { return }
+        captureQueue.async { [weak self] in
+            self?.configureAndStartBuiltInMicCapture()
+        }
+    }
+
+    private func configureAndStartBuiltInMicCapture() {
+        guard shouldCaptureMac else { return }
         if captureConfigured {
-            captureQueue.async { [weak self] in
-                guard let self, !self.captureSession.isRunning, self.isMacInputEnabled else { return }
-                self.captureSession.startRunning()
-                print("[AUDIO] MacBook 麦克风采集已恢复")
-            }
+            startCaptureIfNeeded()
             return
         }
         let discovery = AVCaptureDevice.DiscoverySession(
@@ -429,14 +458,7 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
             captureSession.commitConfiguration()
             captureConfigured = true
 
-            captureQueue.async { [weak self] in
-                guard let self, self.isMacInputEnabled else { return }
-                self.captureSession.startRunning()
-                print(
-                    "[AUDIO] MacBook 麦克风采集已启动: " +
-                    "\(device.localizedName), running=\(self.captureSession.isRunning)"
-                )
-            }
+            startCaptureIfNeeded()
         } catch {
             print("[AUDIO] ⚠️ MacBook 麦克风采集失败: \(error.localizedDescription)")
         }
@@ -447,7 +469,7 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
         didOutput sampleBuffer: CMSampleBuffer,
         from connection: AVCaptureConnection
     ) {
-        guard isMacInputEnabled,
+        guard shouldCaptureMac,
               let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer),
               let streamDescription = CMAudioFormatDescriptionGetStreamBasicDescription(
                 formatDescription
@@ -517,15 +539,36 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
         return (mixActive, macInputEnabled, remoteInputEnabled, gain)
     }
 
-    private func setMacCaptureEnabled(_ enabled: Bool) {
-        if enabled {
+    private var shouldCaptureMac: Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return resourceLease.shouldCaptureMac(enabled: macInputEnabled, mixActive: mixActive)
+    }
+
+    // Only called on captureQueue. Check again after the blocking start because
+    // a stop, route loss or preference change may arrive while it is starting.
+    private func startCaptureIfNeeded() {
+        guard shouldCaptureMac, !captureSession.isRunning else { return }
+        captureSession.startRunning()
+        if !shouldCaptureMac, captureSession.isRunning { captureSession.stopRunning() }
+    }
+
+    @discardableResult
+    private func setMacCaptureEnabled(_ enabled: Bool) -> Bool {
+        if enabled, shouldCaptureMac {
             requestBuiltInMicAccess()
-            return
+            return true
         }
-        captureQueue.async { [weak self] in
-            guard let self, !self.isMacInputEnabled, self.captureSession.isRunning else { return }
-            self.captureSession.stopRunning()
-            print("[AUDIO] MacBook 麦克风采集已暂停")
+        let stopCapture = { [self] () -> Bool in
+            if !shouldCaptureMac, captureSession.isRunning { captureSession.stopRunning() }
+            return !captureSession.isRunning
+        }
+        // Drain pending starts before reporting the session closed. Avoid sync
+        // dispatch to our own queue if a capture delegate closes the session.
+        if DispatchQueue.getSpecific(key: captureQueueKey) == true {
+            return stopCapture()
+        } else {
+            return captureQueue.sync(execute: stopCapture)
         }
     }
 
@@ -538,7 +581,7 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
         stateLock.lock()
         let targetRate = outputSampleRate
         let generation = routeGeneration
-        let hasOutput = outputDeviceID != nil
+        let hasOutput = outputIOProcID != nil
         stateLock.unlock()
         guard hasOutput else { return }
         let resampled = Self.resample(
@@ -550,7 +593,7 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
 
         stateLock.lock()
         let sourceEnabled = source == .mac ? macInputEnabled : remoteInputEnabled
-        guard mixActive, sourceEnabled, generation == routeGeneration, outputDeviceID != nil else {
+        guard mixActive, sourceEnabled, generation == routeGeneration, outputIOProcID != nil else {
             stateLock.unlock()
             return
         }
@@ -610,7 +653,14 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
 
     // MARK: - CoreAudio direct output
 
-    private func startOutputDevice(_ deviceID: AudioDeviceID, route: AudioOutputRoute) {
+    private func startOutputDevice(_ deviceID: AudioDeviceID, route: AudioOutputRoute) -> Bool {
+        stateLock.lock()
+        let hasUnreleasedOutput = outputIOProcID != nil
+        stateLock.unlock()
+        guard !hasUnreleasedOutput else {
+            updateRouteError("输出清理未完成；请重试关闭会话")
+            return false
+        }
         var ioProcID: AudioDeviceIOProcID?
         let createStatus = AudioDeviceCreateIOProcIDWithBlock(
             &ioProcID,
@@ -621,7 +671,7 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
         }
         guard createStatus == noErr, let ioProcID else {
             updateRouteError("创建输出失败：OSStatus=\(createStatus)")
-            return
+            return false
         }
 
         stateLock.lock()
@@ -631,9 +681,14 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
         stateLock.unlock()
         let startStatus = AudioDeviceStart(deviceID, ioProcID)
         guard startStatus == noErr else {
-            AudioDeviceDestroyIOProcID(deviceID, ioProcID)
-            updateRouteError("启动输出失败：OSStatus=\(startStatus)")
-            return
+            let destroyStatus = AudioDeviceDestroyIOProcID(deviceID, ioProcID)
+            if destroyStatus != noErr {
+                stateLock.lock()
+                outputIOProcID = ioProcID
+                stateLock.unlock()
+            }
+            updateRouteError("启动输出失败：OSStatus=\(startStatus)，清理=\(destroyStatus)")
+            return false
         }
 
         stateLock.lock()
@@ -642,27 +697,60 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
         outputRoute = route
         routeError = nil
         stateLock.unlock()
-        installBoundRouteListeners(deviceID)
-        print("[AUDIO] 输出已绑定：\(route.name) · \(Int(route.sampleRate)) Hz · UID=\(route.uid)")
+        print("[AUDIO] 输出已启动：\(route.name) · \(Int(route.sampleRate)) Hz · UID=\(route.uid)")
+        return true
     }
 
-    private func stopOutputDevice() {
-        removeBoundRouteListeners()
+    @discardableResult
+    private func stopOutputDevice() -> Bool {
         stateLock.lock()
         let deviceID = outputDeviceID
         let ioProcID = outputIOProcID
-        outputDeviceID = nil
-        outputIOProcID = nil
-        outputRoute = nil
+        let wasActive = mixActive
+        mixActive = false
+        resourceLease.invalidate()
         routeGeneration &+= 1
         clearPendingBuffersLocked()
         pendingTestTone.removeAll(keepingCapacity: true)
         pendingTestToneIndex = 0
         stateLock.unlock()
+        var released = true
         if let deviceID, let ioProcID {
-            AudioDeviceStop(deviceID, ioProcID)
-            AudioDeviceDestroyIOProcID(deviceID, ioProcID)
+            let stopStatus = AudioDeviceStop(deviceID, ioProcID)
+            let destroyStatus = AudioDeviceDestroyIOProcID(deviceID, ioProcID)
+            released = destroyStatus == noErr
+            if released {
+                stateLock.lock()
+                outputIOProcID = nil
+                stateLock.unlock()
+            }
+            if stopStatus != noErr || destroyStatus != noErr {
+                updateRouteError("输出清理：停止=\(stopStatus)，销毁=\(destroyStatus)")
+            }
         }
+        let captureStopped = setMacCaptureEnabled(false)
+        if !captureStopped { updateRouteError("Mac 麦克风采集尚未停止；请重试关闭会话") }
+        released = released && captureStopped
+        if wasActive {
+            print("[AUDIO] 语音输出关闭")
+            onRouteChanged?(false)
+        }
+        notifyConfigurationChanged()
+        return released
+    }
+
+    @discardableResult
+    private func unbindOutputDevice() -> Bool {
+        let invalidatedSession = isMixActive
+        let released = stopOutputDevice()
+        if invalidatedSession { onResourcesInvalidated?() }
+        guard released else { return false }
+        removeBoundRouteListeners()
+        stateLock.lock()
+        outputDeviceID = nil
+        outputRoute = nil
+        stateLock.unlock()
+        return true
     }
 
     private func notifyConfigurationChanged() {
@@ -753,7 +841,7 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
         var remoteTaken = 0
         var firstRemoteRenderDescription: String?
         var toneTaken = 0
-        var toneFinished = false
+        var completedTone: AudioResourceLease.Token?
 
         stateLock.lock()
         let toneAvailable = pendingTestTone.count - pendingTestToneIndex
@@ -764,7 +852,9 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
                 with: pendingTestTone[pendingTestToneIndex..<(pendingTestToneIndex + toneTaken)]
             )
             pendingTestToneIndex += toneTaken
-            toneFinished = pendingTestToneIndex == pendingTestTone.count
+            if pendingTestToneIndex == pendingTestTone.count {
+                completedTone = resourceLease.current
+            }
         }
         if mixActive {
             let remoteAvailable = pendingRemote.count - pendingRemoteIndex
@@ -810,7 +900,10 @@ final class AudioPipe: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
             print(firstRemoteRenderDescription)
         }
 
-        if toneFinished { notifyConfigurationChanged() }
+        if let completedTone {
+            // CoreAudio stop/destroy must never run inside its render callback.
+            DispatchQueue.main.async { [weak self] in self?.finishTestTone(completedTone) }
+        }
         for frame in toneTaken..<frameCount {
             let hasMac = frame < macTaken
             let hasRemote = frame < remoteTaken

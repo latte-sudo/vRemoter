@@ -13,7 +13,7 @@ enum Key {
 }
 final class AudioPipe {
     static let shared = AudioPipe()
-    func setRemoteActive(_ active: Bool) {}
+    func setRemoteActive(_ active: Bool) -> Bool { true }
 }
 enum L10n {
     static func text(_ chinese: String, _ english: String) -> String { english }
@@ -98,11 +98,17 @@ final class Harness {
     var opens = 0
     var closes = 0
     var ended = 0
+    var routeStopSucceeds = true
+    var routeStartSucceeds = true
+    var statuses = [String]()
     lazy var controller: ChromecastVoiceSessionController = {
         let value = ChromecastVoiceSessionController(
             configurationProvider: { [unowned self] in self.configuration },
             doubaoState: monitor,
-            setRemoteRouteActive: { [unowned self] in self.events.append("route:\($0)") },
+            setRemoteRouteActive: { [unowned self] active in
+                self.events.append("route:\(active)")
+                return active ? self.routeStartSucceeds : self.routeStopSucceeds
+            },
             triggerDown: { [unowned self] in self.events.append("down:\($0.rawValue)") },
             triggerUp: { [unowned self] in self.events.append("up:\($0.rawValue)") },
             schedule: { [unowned self] delay, work in self.scheduler.schedule(after: delay, work: work) }
@@ -114,6 +120,7 @@ final class Harness {
         }
         value.onMicrophoneCloseRequested = { [unowned self] in self.closes += 1 }
         value.onSessionEnded = { [unowned self] in self.ended += 1 }
+        value.onStateChanged = { [unowned self] in self.statuses.append($0) }
         return value
     }()
 
@@ -128,7 +135,10 @@ final class Harness {
         controller.start()
     }
 
-    func press() { controller.remoteAudioStarted(reason: 0x03) }
+    func press(receivesPCM: Bool = true) {
+        controller.remoteAudioStarted(reason: 0x03)
+        if receivesPCM { controller.remotePCMReceived() }
+    }
     func release() { controller.remoteAudioStopped(reason: 0x02) }
     var downs: Int { events.filter { $0.hasPrefix("down:") }.count }
     var ups: Int { events.filter { $0.hasPrefix("up:") }.count }
@@ -356,4 +366,156 @@ for interruption in ["settings", "disconnect", "new press"] {
     h.controller.stop()
     require(h.downs == h.ups, "\(interruption) cleanup balances all keys")
 }
+// Route acquisition must precede any synthetic target shortcut. Failed starts
+// cannot accidentally toggle an idle target on during their cleanup.
+for target in [InputToolTriggerMode.hold, .toggle] {
+    let h = Harness(remote: .hold, target: target)
+    h.routeStartSucceeds = false
+    h.press(receivesPCM: false)
+    require(!h.controller.isActive && h.downs == 0 && h.ups == 0,
+            "failed route start injects no \(target) shortcut")
+    require(h.closes > 0, "failed route start closes remote microphone")
+    h.scheduler.advance(by: 5)
+    require(h.downs == 0 && !h.controller.isActive, "failed route start leaves no delayed shortcut")
+    h.controller.stop()
+}
+do {
+    let h = Harness(remote: .hold, target: .hold)
+    h.press(receivesPCM: false)
+    h.scheduler.advance(by: 1.99)
+    require(h.controller.isActive, "first PCM watchdog allows bounded startup grace")
+    h.scheduler.advance(by: 0.02)
+    require(!h.controller.isActive && h.downs == h.ups && h.events.last == "route:false",
+            "missing first PCM releases key and route at startup deadline")
+    h.controller.remotePCMReceived()
+    require(!h.controller.isActive, "late PCM cannot revive timed-out session")
+    h.controller.stop()
+}
+do {
+    let h = Harness(remote: .hold, target: .hold)
+    h.press(receivesPCM: false)
+    h.scheduler.advance(by: 1.9)
+    h.controller.remotePCMReceived()
+    let statusCount = h.statuses.count
+    h.controller.remotePCMReceived()
+    require(h.statuses.count == statusCount, "later PCM packets do not repeat UI state publication")
+    h.scheduler.advance(by: 30)
+    require(h.controller.isActive && h.controller.debugSnapshot.syntheticKeyDown,
+            "one real PCM packet cancels startup watchdog across natural speech pauses")
+    h.controller.stop()
+}
+do {
+    let h = Harness(remote: .hold, target: .hold)
+    h.press(receivesPCM: false)
+    h.scheduler.advance(by: 1)
+    h.controller.forceClose()
+    h.press(receivesPCM: false)
+    h.scheduler.advance(by: 1.1)
+    require(h.controller.isActive, "old first PCM deadline cannot close next session")
+    h.controller.remotePCMReceived()
+    h.scheduler.advance(by: 2)
+    require(h.controller.isActive, "next session independently cancels its first PCM watchdog")
+    h.controller.stop()
+}
+
+// Keep output through the tail and complete the final pulse before releasing
+// this session's route. Main-queue delay cannot invert that ownership order.
+do {
+    let h = Harness(remote: .hold, target: .toggle)
+    h.press()
+    require(h.events.first == "route:true" && h.events.dropFirst().first == "down:option",
+            "route starts before target shortcut")
+    h.release()
+    h.scheduler.advance(by: 0.119)
+    require(!h.events.contains("route:false"), "route remains acquired during audio tail")
+    h.scheduler.advance(by: 0.002)
+    require(h.controller.debugSnapshot.syntheticKeyDown && !h.events.contains("route:false"),
+            "route remains acquired during final toggle pulse")
+    h.scheduler.advance(by: 0.06)
+    require(h.events.suffix(2).elementsEqual(["up:option", "route:false"]),
+            "final key-up precedes route release")
+    h.controller.stop()
+}
+
+do {
+    let h = Harness(remote: .hold, target: .toggle)
+    h.press(); h.release()
+    h.routeStopSucceeds = false
+    h.scheduler.advance(by: 0.2)
+    require(h.controller.isActive && h.controller.debugSnapshot.phase == "closing"
+            && h.downs == h.ups && h.ended == 0,
+            "failed route cleanup keeps session closing after final key-up")
+    require(h.statuses.last == "Local audio resources are still closing · retry stop",
+            "failed cleanup never reports local voice closed")
+    let previousDowns = h.downs
+    h.press()
+    require(h.controller.debugSnapshot.phase == "closing" && h.downs == previousDowns,
+            "new press cannot inject shortcut while old route cleanup fails")
+    h.routeStopSucceeds = true
+    h.press()
+    require(h.controller.isActive && h.controller.debugSnapshot.phase == "open"
+            && h.downs == previousDowns + 1 && h.ended == 1,
+            "new press retries cleanup before starting replacement session")
+    h.controller.stop()
+}
+
+// Post-stop target observation is read-only and never equates unavailable or
+// custom-tool state with a confirmed microphone release.
+for state in [DoubaoAudioStateMonitor.State.inactive, .active, .unavailable] {
+    let h = Harness(remote: .hold, target: .hold, tool: .doubao)
+    h.press()
+    h.monitor.emit(.active)
+    h.release()
+    h.scheduler.advance(by: 0.13)
+    require(!h.controller.isActive && h.statuses.last?.contains("not yet confirmed") == true,
+            "local cleanup does not claim immediate target stop confirmation")
+    let eventCount = h.events.count
+    h.monitor.state = state
+    h.scheduler.advance(by: 1.51)
+    let expected: String
+    switch state {
+    case .inactive: expected = "Local voice closed · Doubao stopped recording"
+    case .active: expected = "Local voice closed · warning: Doubao is still recording; stop it in Doubao"
+    case .unavailable: expected = "Local voice closed · Doubao stop not confirmed"
+    }
+    require(h.statuses.last == expected, "post-stop \(state) snapshot reports honest target status")
+    require(h.events.count == eventCount && h.downs == h.ups,
+            "post-stop \(state) verification injects no recovery shortcut")
+    h.controller.stop()
+}
+do {
+    let h = Harness(remote: .hold, target: .hold, tool: .custom)
+    h.press(); h.release()
+    h.scheduler.advance(by: 2)
+    require(h.statuses.last == "Local voice closed · custom tool stop not confirmed",
+            "custom tool stop remains explicitly unconfirmed")
+    require(h.monitor.starts == 0, "custom post-stop check never starts Doubao observer")
+    h.controller.stop()
+}
+do {
+    let h = Harness(remote: .hold, target: .hold, tool: .doubao)
+    h.press(); h.monitor.emit(.active); h.release()
+    h.scheduler.advance(by: 0.13)
+    h.press(); h.monitor.emit(.active)
+    let statusCount = h.statuses.count
+    h.scheduler.advance(by: 1.5)
+    require(h.controller.isActive && h.statuses.count == statusCount && h.statuses.last == "Recording",
+            "previous stop confirmation cannot label a new recording session")
+    h.controller.stop()
+}
+
+do {
+    let h = Harness()
+    h.routeStopSucceeds = false
+    h.controller.disconnected()
+    require(h.controller.isActive && h.controller.debugSnapshot.phase == "closing"
+            && h.statuses.last == "Local audio resources are still closing · retry stop",
+            "idle temporary-output cleanup failure remains closing on disconnect")
+    h.routeStopSucceeds = true
+    h.controller.forceClose()
+    require(!h.controller.isActive && h.downs == 0, "idle cleanup retry releases without target shortcut")
+    h.controller.stop()
+}
+
+runAudioResourceLeaseTests()
 print("All Chromecast voice regression tests passed.")

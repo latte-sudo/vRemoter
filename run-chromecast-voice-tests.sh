@@ -8,6 +8,8 @@ fi
 OUTPUT="$(mktemp -d "${TMPDIR:-/tmp}/vremote-voice-tests.XXXXXX")"
 trap 'rm -rf "$OUTPUT"' EXIT
 swiftc \
+  "$ROOT/Sources/vRemote/AudioResourceLease.swift" \
+  "$ROOT/SelfTests/AudioResourceLeaseTests.swift" \
   "$ROOT/Sources/vRemote/ChromecastVoiceStateMachine.swift" \
   "$ROOT/Sources/vRemote/VoiceConfiguration.swift" \
   "$ROOT/Sources/vRemote/ChromecastVoiceSessionController.swift" \
