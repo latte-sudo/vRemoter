@@ -1,19 +1,12 @@
-// vRemote for macOS.
+// vRemote for macOS 12+ — Chromecast-focused runtime.
 //
-// 1. Supported remote voice key → matching Option toggle semantics
-// 2. Remote ATVV + Mac microphone → aligned mix → vRemoteDr 2ch → Doubao
-// 3. A physical Mac Option key controls the same remote microphone session
+// Remote ATVV audio -> selected virtual route -> user-selected speech tool.
+// Physical remote and target shortcut modes are configured independently.
+// Mac microphone capture is disabled for this product, including upgrades.
+// X6-named shared keyboard observation and compatibility types remain, but
+// X6 transport is not started. See docs/NATIVE_INTERFACE_IMPLEMENTATION.md.
 //
-// macOS-only. Requires:
-//   * X6-Remote or Chromecast Remote paired in System Settings → Bluetooth
-//   * Accessibility permission (System Settings → Privacy & Security →
-//     Accessibility) for Option observation and Search suppression
-//   * vRemoteDriver.driver installed and visible as vRemoteDr 2ch in
-//     System Settings → Sound → Input/Output
-//   * Doubao IME configured for Option-as-voice-mode trigger
-//
-// Run:   swift run
-// Quit:  menu bar icon → 退出, or Ctrl+C
+// Run: swift run. Quit: menu bar icon -> Quit, or Ctrl+C.
 
 import AppKit
 import CoreGraphics
@@ -76,7 +69,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // This release intentionally supports only remote audio, including upgrades.
         AppStorage.macInputEnabled = false
         AppStorage.remoteInputEnabled = true
-        // Keep one continuous diagnostic history while X6 is being tuned.
+        // SwiftUI may have initialized the shared pipe before didFinishLaunching.
+        // Update its cached flags too, before any HID/BLE/session can start.
+        AudioPipe.shared.setInputEnabled(mac: false, remote: true)
+        // Keep one diagnostic history for transport troubleshooting.
         // Log.swift rotates at 5 MB; only the explicit menu action clears it.
         Log.setEnabled(AppStorage.loggingEnabled)
         let appVersion = Bundle.main.object(

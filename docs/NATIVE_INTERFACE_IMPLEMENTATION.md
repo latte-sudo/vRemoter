@@ -108,3 +108,13 @@ Required copyright and license texts are copied into the app's
 CI builds the ad-hoc-signed development app and checks its actual notice bytes,
 active assets and absence of old promotion/telemetry resources. This is not
 signing/notarization or GPL-driver distribution clearance.
+
+### Upgrade privacy invariant
+
+Launch applies remote-only input to both persisted preferences and the live
+`AudioPipe` before starting any HID/BLE/session controller. This matters because
+SwiftUI may initialize the shared pipe before `applicationDidFinishLaunching`;
+changing UserDefaults alone cannot reset an already cached Mac-input flag. Source
+regression checks require the explicit live update before every startup call.
+The physical upgrade acceptance above still needs a Mac with an old enabled
+Mac-input preference.

@@ -31,4 +31,9 @@ for contract in ['ChromecastMappingCanvas(', 'ChromecastGlobalVoiceHeader(model:
 check('撤销' not in view, 'no visible undo action')
 check('testText = "你好' not in view, 'no synthetic recognition text')
 check('private enum ChromecastMappingPhoto' not in (root / 'Sources/vRemote/ChromecastMappingCanvas.swift').read_text(), 'same real photo reused')
+main = (root / 'Sources/vRemote/main.swift').read_text()
+remote_only = 'AudioPipe.shared.setInputEnabled(mac: false, remote: true)'
+check(remote_only in main, 'startup applies remote-only mode to cached audio state')
+for start in ['chromecastHID.start()', 'chromecastBLE.start()', 'chromecastSession.start()']:
+    check(main.index(remote_only) < main.index(start), 'remote-only state precedes ' + start)
 print(f'PASS: {checks} native interface source contracts (not runtime UI tests)')
