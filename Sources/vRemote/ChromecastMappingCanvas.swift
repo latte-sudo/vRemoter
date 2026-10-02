@@ -161,7 +161,7 @@ private struct ChromecastVoiceMappingCard: View {
         Button(action: onSettings) {
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 6) {
-                    Label("语音键", systemImage: "mic.fill").fontWeight(.semibold)
+                    Label("语音键", systemImage: "mic.fill").font(.system(size: 13, weight: .semibold))
                     Spacer(minLength: 0)
                     Text("固定语音输入").font(.system(size: 10)).foregroundColor(.secondary)
                         .padding(.horizontal, 5).padding(.vertical, 2)
