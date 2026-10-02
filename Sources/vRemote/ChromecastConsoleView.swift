@@ -59,6 +59,7 @@ struct ChromecastConsoleView: View {
             }
             routeFingerprint = currentRouteFingerprint
             audio.onConfigurationChanged = {
+                if !audio.isOutputDeviceAvailable && model.voiceActive { model.onStopMicrophone?() }
                 let fingerprint = currentRouteFingerprint
                 if fingerprint != routeFingerprint { invalidateTest(); routeFingerprint = fingerprint }
                 routeRevision += 1
@@ -87,7 +88,9 @@ struct ChromecastConsoleView: View {
                     case 0:
                         Text("把 Chromecast 遥控器变成无线麦克风和快捷键遥控器").font(.title2)
                         Text("引导会检查连接与权限，选择音频通道和语音工具，最后请你实际说一句话。仅连接成功或听到测试音，不代表语音识别已经成功。")
-                    case 1: connection
+                    case 1:
+                        connection
+                        permissions
                     case 2: permissions
                     case 3: audioSettings
                     case 4: voiceSettings
@@ -191,6 +194,13 @@ struct ChromecastConsoleView: View {
             if configuration.inputTool == .custom {
                 TextField("应用 Bundle ID，例如 com.example.voice", text: $configuration.customBundleIdentifier)
                 Text("自定义工具的兼容性需要实际测试。vRemoter 不执行语音识别，也不自动修改该工具设置。").font(.caption)
+            }
+            Button("打开所选语音工具") {
+                if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: configuration.targetBundleIdentifier) {
+                    NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) { _, error in
+                        if let error { DispatchQueue.main.async { message = error.localizedDescription } }
+                    }
+                } else { message = "未找到所选工具，请先安装或手动打开，并确认 Bundle ID。" }
             }
             Picker("遥控器操作方式", selection: $configuration.remoteVoiceMode) {
                 Text("按一下开始，再按一下停止").tag(RemoteVoiceMode.toggle)

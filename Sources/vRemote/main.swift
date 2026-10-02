@@ -181,6 +181,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.updateStatus()
         }
         chromecastBLE.onAudioStarted = { [weak self] reason, _ in
+            if reason == 0x03 { self?.debugWindow.observedButton("voice") }
             self?.lastVoiceRemote = .chromecast
             self?.chromecastSession.remoteAudioStarted(reason: reason)
         }

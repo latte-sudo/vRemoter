@@ -750,7 +750,7 @@ extension BLEBridge: CBPeripheralDelegate {
             w.appendRawBytes(data)
         }
 
-        AudioPipe.shared.feed(samples: frame.samples)
+        AudioPipe.shared.feed(samples: frame.samples, inputSampleRate: protocolHandler.codec == .adpcm16k ? 16_000 : 8_000)
         let needsLevel = onLevel != nil || Self.diagnosticsEnabled
         if needsLevel {
             levelSumSq += frame.samples.reduce(into: 0) {
