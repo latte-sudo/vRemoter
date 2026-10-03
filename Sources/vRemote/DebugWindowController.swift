@@ -176,6 +176,13 @@ final class ConsoleViewModel: ObservableObject {
     @Published var inputTriggerKey = AppStorage.inputTriggerKey
     @Published var activeModal: ConsoleModal?
     private let permissionRequester = MacPermissionRequester()
+    @Published private(set) var permissionGuidanceActive = false
+    private lazy var permissionFollowAlong = PermissionFollowAlongController(
+        authorization: { [weak self] permission in
+            self?.permissionRequester.authorization(for: permission) ?? .unknown
+        },
+        onEnd: { [weak self] in self?.permissionGuidanceActive = false }
+    )
     private struct PermissionFeedback {
         let kind: PermissionKind
         let result: PermissionRequestResult?
@@ -255,6 +262,7 @@ final class ConsoleViewModel: ObservableObject {
 
     @discardableResult
     func requestPermission(for kind: PermissionKind) -> String {
+        stopPermissionGuidance()
         guard let permission = kind.requestablePermission else {
             permissionFeedback = PermissionFeedback(kind: kind, result: nil)
             return permissionRequestMessage
@@ -262,17 +270,30 @@ final class ConsoleViewModel: ObservableObject {
         let result = permissionRequester.request(permission)
         permissionFeedback = PermissionFeedback(kind: kind, result: result)
         refreshPermissions()
+        if result == .requested || result == .openSettings { beginPermissionGuidance(permission) }
         return permissionRequestMessage
     }
 
+    private func beginPermissionGuidance(_ permission: RequestablePermission) {
+        guard permissionRequester.authorization(for: permission) != .authorized else { return }
+        permissionGuidanceActive = permissionFollowAlong.begin(permission)
+    }
+
+    func stopPermissionGuidance() {
+        permissionFollowAlong.stop()
+    }
+
     func openSettings(for kind: PermissionKind) {
+        stopPermissionGuidance()
         if kind == .doubaoInput {
             openDoubaoSettings()
             activeModal = nil
             return
         }
         guard let url = kind.settingsURL else { return }
-        NSWorkspace.shared.open(url)
+        if NSWorkspace.shared.open(url), let permission = kind.requestablePermission {
+            beginPermissionGuidance(permission)
+        }
         activeModal = nil
     }
 
@@ -435,9 +456,12 @@ final class DebugWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
+        stopPermissionGuidance()
         permissionTimer?.invalidate()
         permissionTimer = nil
     }
+
+    func stopPermissionGuidance() { model.stopPermissionGuidance() }
 
     private func startPermissionTimer() {
         permissionTimer?.invalidate()
@@ -461,7 +485,7 @@ struct ConsoleModalContent: View {
         case .permission(let kind):
             PermissionGuideView(
                 kind: kind,
-                onCancel: { model.activeModal = nil },
+                onCancel: { model.stopPermissionGuidance(); model.activeModal = nil },
                 onOpenSettings: { model.openSettings(for: kind) }
             )
         }

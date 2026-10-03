@@ -13,6 +13,8 @@ swiftc Sources/vRemote/Localization.swift Sources/vRemote/KeyboardTriggerState.s
 .build/chromecast-tests/keyboard-trigger
 swiftc Sources/vRemote/Localization.swift Sources/vRemote/PermissionRequestSupport.swift SelfTests/PermissionRequestTests.swift -o .build/chromecast-tests/permissions
 .build/chromecast-tests/permissions
+swiftc Sources/vRemote/PermissionRequestSupport.swift Sources/vRemote/PermissionFollowAlongSupport.swift SelfTests/PermissionFollowAlongTests.swift -o .build/chromecast-tests/permission-follow-along
+.build/chromecast-tests/permission-follow-along
 swiftc Sources/vRemote/Localization.swift Sources/vRemote/ChromecastMappingLayout.swift SelfTests/ChromecastMappingLayoutTests.swift -o .build/chromecast-tests/mapping-layout
 .build/chromecast-tests/mapping-layout
 swiftc Sources/vRemote/Localization.swift Sources/vRemote/AudioRouteConfiguration.swift SelfTests/AudioRouteConfigurationTests.swift -o .build/chromecast-tests/audio

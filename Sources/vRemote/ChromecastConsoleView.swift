@@ -101,17 +101,19 @@ struct ChromecastConsoleView: View {
                 .environment(\.locale, AppLanguage.selected.locale)
                 .sheet(item: $model.activeModal) { modal in ConsoleModalContent(model: model, modal: modal) }
                 .onAppear(perform: prepareView)
+                .onDisappear { model.stopPermissionGuidance() }
                 .onChange(of: configuration) { _ in saveVoiceConfiguration() }
                 .onChange(of: appearance) { preference in
                     AppAppearance.set(preference); AppAppearanceController.apply(preference)
                 }
                 .onChange(of: step) { value in
+                    model.stopPermissionGuidance()
                     OnboardingProgress.save(step: value)
                     furthestStep = max(furthestStep, value)
                     scroll.scrollTo("page-top", anchor: .top)
                 }
-                .onChange(of: page) { _ in scroll.scrollTo("page-top", anchor: .top) }
-                .onChange(of: setup) { _ in scroll.scrollTo("page-top", anchor: .top) }
+                .onChange(of: page) { _ in model.stopPermissionGuidance(); scroll.scrollTo("page-top", anchor: .top) }
+                .onChange(of: setup) { _ in model.stopPermissionGuidance(); scroll.scrollTo("page-top", anchor: .top) }
                 .onChange(of: model.bleConnected) { value in if !value { invalidateTest() } }
                 .onChange(of: model.hidConnected) { value in if !value { invalidateTest() } }
                 .onChange(of: model.accessibilityGranted) { value in if !value { invalidateTest() } }
@@ -407,6 +409,7 @@ struct ChromecastConsoleView: View {
             Button(L10n.tr("console.connection.checkPermissionsFirst")) { step = 2 }
             if !model.bluetoothGranted { permissionRow(L10n.tr("console.permission.bluetooth"), detail: L10n.tr("console.permission.connectVoice"), granted: false, status: model.bluetoothPermissionStatus, kind: .bluetooth) }
             if !model.permissionRequestMessage.isEmpty { Text(model.permissionRequestMessage).font(.caption).textSelection(.enabled) }
+            permissionFollowAlongNotice
         }
     }
     private var connectionStatus: some View {
@@ -434,12 +437,23 @@ struct ChromecastConsoleView: View {
                 Button(L10n.tr("console.permission.recheck")) { checkPermissions() }
             }
             if !model.permissionRequestMessage.isEmpty { Text(model.permissionRequestMessage).font(.caption).textSelection(.enabled) }
+            permissionFollowAlongNotice
             if let checked = model.permissionCheckedAt { Text(L10n.tr("console.permission.lastCheck", checked.formatted(Date.FormatStyle(date: .abbreviated, time: .standard).locale(AppLanguage.selected.locale)))).font(.caption).foregroundColor(ConsoleDesignTokens.secondaryText) }
             ConsoleNotice(text: L10n.tr("console.permission.remoteOnly"))
             Text(L10n.tr("console.permission.missingApp"))
                 .font(.caption).foregroundColor(ConsoleDesignTokens.secondaryText)
         }
     }
+    @ViewBuilder private var permissionFollowAlongNotice: some View {
+        if model.permissionGuidanceActive {
+            HStack(alignment: .top) {
+                Text(L10n.tr("permission.follow.waiting")).font(.caption)
+                Spacer()
+                Button(L10n.tr("permission.follow.dismiss")) { model.stopPermissionGuidance() }
+            }
+        }
+    }
+
     private func permissionRow(_ title: String, detail: String, granted: Bool, status: String, kind: PermissionKind) -> some View {
         ConsoleCard {
             HStack(spacing: 16) {

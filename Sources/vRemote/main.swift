@@ -622,6 +622,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        debugWindow.stopPermissionGuidance()
         NotificationCenter.default.removeObserver(self, name: .appLanguageDidChange, object: nil)
         voiceReceptionTimer?.invalidate()
         voiceReceptionTimer = nil

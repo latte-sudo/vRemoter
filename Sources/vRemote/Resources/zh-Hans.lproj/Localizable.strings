@@ -482,3 +482,12 @@
 "support.voice.timedOut" = "录音已达到时长上限，需要继续时请重新开始";
 
 "console.brand.placeholder" = "临时名称 · 正式名称 TODO";
+
+// User-started System Settings follow-along guide
+"permission.follow.title" = "权限操作指引";
+"permission.follow.path.modern" = "在系统设置 → 隐私与安全性 → {0} 中找到此应用。";
+"permission.follow.path.monterey" = "在系统偏好设置 → 安全性与隐私 → 隐私 → {0} 中找到此应用。若系统要求，请先解锁面板。";
+"permission.follow.enable" = "请手动启用“{0}”。若列表中没有此应用，可在提供添加（+）按钮的页面选择已安装的应用。";
+"permission.follow.manual" = "不同 macOS 版本的布局可能不同。指引跟随设置窗口，不指向某个具体控件。若系统要求，请重新打开应用后再检查权限。";
+"permission.follow.dismiss" = "隐藏指引";
+"permission.follow.waiting" = "指引将在设置窗口旁显示。若未显示，请使用 ⓘ 中的说明。离开设置后指引结束。";

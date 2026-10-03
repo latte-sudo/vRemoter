@@ -33,6 +33,8 @@ jobs:
         run: node docs/prototypes/test-vremoter-onboarding-settings.cjs
       - name: Native interface source contracts
         run: python3 Tools/check-native-interface.py
+      - name: Permission follow-along source contracts
+        run: python3 Tools/check-permission-guidance.py
       - name: Runtime cleanup contracts
         run: python3 Tools/check-runtime-cleanup.py
       - name: Branding, provenance and compatibility contracts

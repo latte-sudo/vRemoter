@@ -32,7 +32,8 @@ final class MacPermissionRequester {
         return authorization(for: permission) == .authorized ? .alreadyGranted : .requested
     }
 
-    private func authorization(for permission: RequestablePermission) -> PermissionAuthorization {
+    /// Read-only preflight, also used by the user-started follow-along guide.
+    func authorization(for permission: RequestablePermission) -> PermissionAuthorization {
         switch permission {
         case .accessibility:
             return AXIsProcessTrusted() ? .authorized : .notGranted

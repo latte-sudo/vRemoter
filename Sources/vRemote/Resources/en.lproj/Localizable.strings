@@ -482,3 +482,12 @@
 "support.voice.timedOut" = "Recording reached its time limit. Start again to keep talking.";
 
 "console.brand.placeholder" = "Temporary name · final name TODO";
+
+// User-started System Settings follow-along guide
+"permission.follow.title" = "Permission guide";
+"permission.follow.path.modern" = "In System Settings → Privacy & Security → {0}, find this app.";
+"permission.follow.path.monterey" = "In System Preferences → Security & Privacy → Privacy → {0}, find this app. Unlock the pane if macOS asks.";
+"permission.follow.enable" = "Enable “{0}” yourself. If it is missing, use Add (+) where available and choose the installed app.";
+"permission.follow.manual" = "Layouts vary by macOS version. This guide follows the window, not a specific control. Reopen the app if macOS asks, then recheck permission.";
+"permission.follow.dismiss" = "Hide guide";
+"permission.follow.waiting" = "The guide will appear beside Settings. If it does not appear, use the ⓘ instructions. Leaving Settings ends the guide.";

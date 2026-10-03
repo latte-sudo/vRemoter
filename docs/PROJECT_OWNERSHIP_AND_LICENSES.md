@@ -166,3 +166,7 @@ SOFTWARE.
 | 音频设备显示名 | `vRemoteDr %ich`；2 声道时 `vRemoteDr 2ch` | `AudioRouteConfiguration.swift`、`DoubaoAudioStateMonitor.swift`、帮助文案和测试也使用默认名；变更需联动 |
 
 如果决定更改上述驱动身份，优先建立可重建的源码方案，不能把当前等长二进制补丁脚本当作任意重命名工具。这个决定仍受第 4 节的 GPL 与分发条件约束。
+
+## 权限跟随指引来源补充（2026-10-03）
+
+新增 `PermissionFollowAlongController.swift` 的伴随面板概念与公开窗口几何技术参考 [maka-agent/maka-cu 的固定版本](https://github.com/maka-agent/maka-cu/blob/1b6c95cef032c15ada8c60dc1bdeb21a316ff353/apps/OpenComputerUse/Sources/OpenComputerUse/PermissionOnboardingApp.swift)。该仓库使用 MIT，署名为 2026 Leo 和 The Maka Authors；完整许可已追加到 THIRD_PARTY_NOTICES.md 并随现有打包流程保留。本项目重写了 macOS 12 兼容的会话/放置模型和三语说明，没有引入其执行器、私有 SkyLight、截图、品牌资产或专有二进制。具体能力、隐私边界与实机验收见 [PERMISSION_REQUESTS.md](PERMISSION_REQUESTS.md#follow-along-settings-guide)。这不改变现有驱动与图像来源的未决限制。

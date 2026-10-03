@@ -109,3 +109,40 @@ See `docs/PROJECT_OWNERSHIP_AND_LICENSES.md` for the source and asset inventory,
 including the generic placeholder icon, preserved historical prototype, contribution
 boundaries and still-unverified rights for the user-provided, AI-enhanced remote image. That audit is bundled as
 `PROJECT_OWNERSHIP_AND_LICENSES.md` next to this notice in packaged app builds.
+
+## System Settings follow-along permission guide
+
+The temporary native guide in
+`Sources/vRemote/PermissionFollowAlongController.swift` adapts the window-following
+companion-panel concept and public AppKit/Core Graphics technique from
+[maka-agent/maka-cu](https://github.com/maka-agent/maka-cu), specifically
+`apps/OpenComputerUse/Sources/OpenComputerUse/PermissionOnboardingApp.swift` at
+revision `1b6c95cef032c15ada8c60dc1bdeb21a316ff353`. That repository is a fork of
+[iFurySt/open-codex-computer-use](https://github.com/iFurySt/open-codex-computer-use).
+The new lifecycle/geometry model, localized guidance and integration are specific
+to this project. No executor, private SkyLight bridge, screenshot capture,
+upstream branding assets or proprietary binary is incorporated by this change.
+The applicable upstream notice is preserved below.
+
+MIT License
+
+Copyright (c) 2026 Leo
+Copyright (c) 2026 The Maka Authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

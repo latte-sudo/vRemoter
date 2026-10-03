@@ -16,15 +16,15 @@
 
 ## 1 清单口径与完整目录
 
-快照日期：2026-10-02；以 `2c88332` 为提交基线，清单包含其后的本轮品牌中性化工作区改动。文件范围为 Git 保留的已跟踪文件与本轮新增、准备纳入版本控制的文件；排除 Git 管理目录、构建缓存、被忽略产物和用户运行时数据，不计已删除路径。本轮从此前 150 个文件移除 21 个上游品牌设计文件和 8 张帮助截图，新增 5 个文件，合计 **126 个文件**，其中 **45 个生产 Swift 文件**、**22 个 Swift 自测文件与 1 份自测说明**。这个快照描述文件状态，不代表相关检查或实机验收已通过。
+快照日期：2026-10-03；以 `d5773c9` 为提交基线，清单包含其后的权限跟随指引工作区改动。文件范围为 Git 保留的已跟踪文件与本轮新增、准备纳入版本控制的文件；排除 Git 管理目录、构建缓存、被忽略产物和用户运行时数据，不计已删除路径。品牌中性化后的 126 个文件基础上，权限跟随指引新增 4 个文件，合计 **130 个文件**，其中 **47 个生产 Swift 文件**、**23 个 Swift 自测文件与 1 份自测说明**。这个快照描述文件状态，不代表相关检查或实机验收已通过。
 
 | 位置 | 文件数 | 主要职责 |
 | --- | ---: | --- |
 | 根目录 | 15 | 产品/许可/版本、SwiftPM、构建安装及测试入口 |
 | .github | 1 | macOS 持续集成 |
-| Sources | 48 | 45 个原生 Swift 文件与 3 个应用语言表 |
-| SelfTests | 23 | 分层回归与运行边界说明 |
-| Tools | 13 | 源码、品牌/打包、模型检查、占位图生成和 HID 诊断 |
+| Sources | 50 | 47 个原生 Swift 文件与 3 个应用语言表 |
+| SelfTests | 24 | 分层回归与运行边界说明 |
+| Tools | 14 | 源码、品牌/打包、模型检查、占位图生成和 HID 诊断 |
 | Packaging | 5 | App 身份、三语用途说明、PKG 安装钩子 |
 | Driver | 4 | 实验驱动构建/安装/卸载与风险说明 |
 | Resources | 4 | 通用占位图及说明、活动遥控器图、原生权限示意说明 |
@@ -87,6 +87,7 @@ vremoter-chromecast-v1/
 │   ├── MenuBarVoiceReceptionTests.swift
 │   ├── OnboardingEvidenceTests.swift
 │   ├── OnboardingProgressTests.swift
+│   ├── PermissionFollowAlongTests.swift
 │   ├── PermissionRequestTests.swift
 │   ├── RemoteDisplayNameTests.swift
 │   ├── VoiceApplicationLauncherTests.swift
@@ -129,6 +130,8 @@ vremoter-chromecast-v1/
 │       ├── MenuBarVoiceReception.swift
 │       ├── OnboardingProgress.swift
 │       ├── OnboardingSpeechEvidence.swift
+│       ├── PermissionFollowAlongController.swift
+│       ├── PermissionFollowAlongSupport.swift
 │       ├── PermissionRequestSupport.swift
 │       ├── RemoteButtonGestures.swift
 │       ├── RemoteButtonMappingController.swift
@@ -155,6 +158,7 @@ vremoter-chromecast-v1/
 │   ├── check-localization.py
 │   ├── check-mapping-layout.py
 │   ├── check-native-interface.py
+│   ├── check-permission-guidance.py
 │   ├── check-runtime-cleanup.py
 │   ├── generate-placeholder-icon.py
 │   ├── hid-report-probe.swift
@@ -388,6 +392,8 @@ Sources/vRemote 是一个 executable target，没有以目录隔离成多个 Swi
 | [Sources/vRemote/ChromecastMappingCanvas.swift](../Sources/vRemote/ChromecastMappingCanvas.swift) | SwiftUI 照片画布、热点、连接线、三格手势卡片、保留语音卡片、实际输入高亮；ChromecastMappingPhoto 统一读 app bundle 或源码资源。 | 首次引导和遥控器设置共用；改卡片/图片或窄窗横向滚动时跑几何检查，再做 macOS 渲染验证。 |
 | [Sources/vRemote/OnboardingProgress.swift](../Sources/vRemote/OnboardingProgress.swift) | 七步进度 schema 2 的保存/迁移；resumedStep 做边界收敛，重启后最多恢复到真实试用步骤，禁止复用上一次录音证据。 | 改变步骤顺序/数量时同时改迁移与 view；保存位置不代表该步骤已通过。 |
 | [Sources/vRemote/OnboardingSpeechEvidence.swift](../Sources/vRemote/OnboardingSpeechEvidence.swift) | canComplete 只在 armed、新 PCM 包、新结束会话、当前非活跃、路由/连接有效、非空文字且用户确认同时满足时为真。 | 新增试用条件先加纯测试；文字不是自动验证过的转写，程序只能验证传输事实和用户确认。 |
+| [Sources/vRemote/PermissionFollowAlongSupport.swift](../Sources/vRemote/PermissionFollowAlongSupport.swift) | 用户主动启动的权限指引会话、启动等待/结束规则、多显示器坐标转换与安全区域放置。 | 纯模型，不读取系统权限或窗口；取消、授权、离开设置后必须结束。 |
+| [Sources/vRemote/PermissionFollowAlongController.swift](../Sources/vRemote/PermissionFollowAlongController.swift) | 临时非激活 NSPanel 跟随系统设置窗口；只读取目标 PID/图层/边界，显示三语人工操作说明。 | macOS 12+；不可读取窗口内容/标题、请求额外权限、自动点击或设置；关闭时清理 timer/observer，保留 MIT 来源。 |
 | [Sources/vRemote/PermissionRequestSupport.swift](../Sources/vRemote/PermissionRequestSupport.swift) | 当前仅 Bluetooth/Accessibility/Input Monitoring 三种可申请权限；PermissionRequestGate 区分已授权、未判定、未获准、拒绝、受限/未知，并限制重复请求。 | 权限状态语义/重复按钮行为改此模型；Bool false 不能虚构成系统“明确拒绝”。 |
 | [Sources/vRemote/MacPermissionRequester.swift](../Sources/vRemote/MacPermissionRequester.swift) | @MainActor 系统申请适配器：AXIsProcessTrustedWithOptions、CGRequestListenEventAccess，以及为 Bluetooth 创建并保留 CBCentralManager；申请后重新读状态。 | 只由明确申请按钮调用；刷新/计时器只读，不可自动请求 Mac 麦克风，也不能把 requested 当 granted。 |
 | [Sources/vRemote/ChromecastSettingsArchive.swift](../Sources/vRemote/ChromecastSettingsArchive.swift) | 原生 v1 plist 的白名单、snapshot/restore/exportData/validate；大小、数量、类型、按键、枚举、payload、路径和语音配置验证，兼容过滤已知历史字段。 | 新增可备份偏好必须显式入白名单并补恶意/异常档案测试；先 validate 再确认再 restore，不触及配对/权限/录音/日志/登录项。 |
@@ -487,6 +493,7 @@ Sources/vRemote 是一个 executable target，没有以目录隔离成多个 Swi
 | [SelfTests/MenuBarVoiceReceptionTests.swift](../SelfTests/MenuBarVoiceReceptionTests.swift) | 真实 PCM 到达、streaming/phase 限制、0.75 秒边界、计时倒退、结束清空与新会话隔离。 | 模型聚合；不渲染菜单栏图标。 |
 | [SelfTests/OnboardingEvidenceTests.swift](../SelfTests/OnboardingEvidenceTests.swift) | 逐个剔除 fresh PCM、结束会话、连接/路由、确认、文字等条件，确保手打文字本身不能通过。 | 模型聚合；不证明文字确实由识别产生，那一步仍是用户确认。 |
 | [SelfTests/OnboardingProgressTests.swift](../SelfTests/OnboardingProgressTests.swift) | 旧步骤到新七步迁移、越界收敛、较后阶段恢复到试用以及进度保存。 | 模型聚合；改步骤结构必须同步。 |
+| [SelfTests/PermissionFollowAlongTests.swift](../SelfTests/PermissionFollowAlongTests.swift) | 主动启动/替换、取消/跳过/关闭/退出、实际授权、启动超时，以及左/上/下多屏几何。 | 模型聚合；不等于原生焦点、实际授权、最小系统版本视觉验收。 |
 | [SelfTests/PermissionRequestTests.swift](../SelfTests/PermissionRequestTests.swift) | 已授权、首次请求、重复点击、之前拒绝、受限/未知及外部授权变化的 gate 决策。 | 模型聚合；不弹出 macOS 授权框。 |
 | [SelfTests/RemoteDisplayNameTests.swift](../SelfTests/RemoteDisplayNameTests.swift) | 默认/trim/空值、中文/emoji/组合字符、长度和 UTF-8 上限、控制/方向字符、持久化/损坏值与 reset。 | 模型聚合；不是蓝牙重命名测试。 |
 | [SelfTests/VoiceApplicationLauncherTests.swift](../SelfTests/VoiceApplicationLauncherTests.swift) | 伪环境验证已选应用、运行中激活、注册与安装候选、移动/缺失/非法应用、异步成功失败、旧配置解码。 | 由 test-voice-launcher.sh 运行；不启动实际应用。 |
@@ -500,6 +507,7 @@ Sources/vRemote 是一个 executable target，没有以目录隔离成多个 Swi
 | --- | --- | --- |
 | [Tools/check-app-bundle.py](../Tools/check-app-bundle.py) | 检查传入 App 实际结构、plist 身份、Mach-O magic/可执行位、ICNS 容器、占位图/本地化与三份许可逐字节一致，拒绝旧品牌、帮助截图及推广/依赖资源。 | 在真实 package-app 之后跑；仅文件格式头和内容验证，不替代 codesign、运行、驱动和 GPL 合规检查。 |
 | [Tools/check-mapping-layout.py](../Tools/check-mapping-layout.py) | 无 macOS 的源码/数学契约：15 个唯一位置、左右顺序、锚点范围、多宽度卡片/图片间距、横向滚动和内联编辑入口。 | 适合快速发现布局结构退化；通过不代表 Swift 编译或像素不重叠。 |
+| [Tools/check-permission-guidance.py](../Tools/check-permission-guidance.py) | 指引的公开 API、只读边界、显式启动、清理集成、来源许可与 CI 接线检查。 | 静态契约，不证明 macOS 运行、焦点或系统设置定位；配合 PERMISSION_REQUESTS 验收。 |
 | [Tools/check-native-interface.py](../Tools/check-native-interface.py) | 源码契约核对七步、四设置页、颜色与当前中性原型、真实试用门槛、停止/计时/确认、remote-only 启动顺序、侧栏对齐和实际 PCM 绿点。 | UI/流程变更时同步契约；多数检查为字符串和正则，必须另外编译/渲染。 |
 | [Tools/check-runtime-cleanup.py](../Tools/check-runtime-cleanup.py) | 检查已移除运行时/推广内容不回流，中性公共组件仍在、无外部包依赖、listen-only 安全、当前权限声明及署名/许可打包等。 | 重构/依赖/清理改动后运行；故意保留历史名字作为“必须不存在”的断言，不是活跃支持。 |
 | [Tools/hid-report-probe.swift](../Tools/hid-report-probe.swift) | 独立开发诊断 Probe：用两个十六进制参数匹配 HID，注册设备 report callback，按时间打印报告 ID、长度和原始 bytes，运行 CFRunLoop。 | macOS 上以 swift Tools/hid-report-probe.swift 18d1 9450 使用；可能需要 Input Monitoring，不测试音频，不上传报告。 |
