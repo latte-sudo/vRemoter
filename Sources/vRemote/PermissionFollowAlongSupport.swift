@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(CoreGraphics)
+import CoreGraphics
+#endif
 
 /// A short-lived, user-started guide. Observation never requests authorization.
 struct PermissionFollowAlongSession {

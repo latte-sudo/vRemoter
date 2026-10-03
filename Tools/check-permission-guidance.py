@@ -58,4 +58,7 @@ check(tasks and all('[weak self]' in capture for capture in tasks),
 termination = controller.split('terminationObserver = NotificationCenter.default.addObserver(', 1)[1].split('let timer =', 1)[0]
 check('self?.generation == currentGeneration' in termination,
       'a queued termination callback must not stop a replacement session')
+for path in ['Sources/vRemote/PermissionFollowAlongSupport.swift', 'SelfTests/PermissionFollowAlongTests.swift']:
+    check('#if canImport(CoreGraphics)\nimport CoreGraphics\n#endif' in (root / path).read_text(),
+          path + ': standalone macOS geometry compilation needs the CoreGraphics Swift overlay')
 print(f'PASS: {checks} permission follow-along source contracts (not native focus, permission or rendering acceptance)')
