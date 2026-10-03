@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 
-enum InputTriggerKey: String, CaseIterable, Identifiable {
+enum InputTriggerKey: String, Codable, CaseIterable, Identifiable {
     case option
     case command
     case control
@@ -12,11 +12,11 @@ enum InputTriggerKey: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .option: "Option (⌥)"
-        case .command: "Command (⌘)"
-        case .control: "Control (⌃)"
-        case .shift: "Shift (⇧)"
-        case .function: "Fn / Globe"
+        case .option: L10n.tr("support.trigger.option")
+        case .command: L10n.tr("support.trigger.command")
+        case .control: L10n.tr("support.trigger.control")
+        case .shift: L10n.tr("support.trigger.shift")
+        case .function: L10n.tr("support.trigger.function")
         }
     }
 

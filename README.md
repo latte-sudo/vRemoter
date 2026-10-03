@@ -1,122 +1,184 @@
-# vRemoter
+# Remote Voice Utility for Chromecast Voice Remote
 
-> 本仓库保存 vRemoter 的源码、设计源稿、构建脚本与测试。普通用户请通过 `vincentstudio.org` 系列域名访问官网、下载与更新服务。
+A macOS 12+ utility that sends Chromecast remote audio to a selected virtual
+microphone route, controls a speech tool's recording shortcut, and maps ordinary
+remote buttons to Mac actions. The app does not recognize speech; the selected
+speech tool does. Mac microphone capture is disabled, including on upgrade.
 
-[官方网站](https://vremoter.vincentstudio.org/) · [下载最新版](https://updates.vincentstudio.org/vremoter/) · [v1.1.1 Release](https://github.com/VincentKingHsu/vRemoter/releases/tag/v1.1.1)
+The current descriptive display names are **Remote Voice Utility / 遥控器语音工具 / 遙控器語音工具**. They are placeholders, not a final product name or a new author identity. The inherited `vRemote` executable, app directory and technical identities remain for compatibility; see the [identity and contribution inventory](docs/PROJECT_OWNERSHIP_AND_LICENSES.md).
 
-## 产品定位
+This is a **development branch**, not a signed/notarized release. It supports the
+known Chromecast Voice Remote profile (VID `0x18D1`, PID `0x9450`). X6 transport,
+profiles, old session controller and its CLI self-test have been removed. Shared
+keyboard observation and voice protocols remain under device-neutral names.
 
-vRemoter 把蓝牙语音遥控器变成 macOS 上的 Vibe Coding 控制器：遥控器语音键控制豆包输入法，遥控器麦克风与 MacBook 麦克风混合为同一个 CoreAudio 输入设备 `vRemoteDr 2ch`。
+## What you need
 
-已接入的遥控器：
+- A Mac running macOS 12 or newer and a Chromecast Voice Remote
+- Swift 5.9+ and the macOS SDK to build; Python 3 and Node.js 18+ for developer checks
+- A working virtual audio route that the selected speech tool can read
+- Doubao or a custom speech tool with a configured recording shortcut
+- Bluetooth, Accessibility and Input Monitoring access granted by the user
 
-- X6-Remote（VID `0x1D5A` / PID `0xC081`）
-- Google Chromecast Remote（VID `0x18D1` / PID `0x9450`）
+The existing `vRemoteDr 2ch` driver route is experimental. App-only packaging
+does not install it or any other driver. The BlackHole-derived driver has separate
+source, license and distribution requirements; see [driver background](Driver/README.md)
+and [release blockers](#release-blockers). No system-default microphone is changed.
 
-Chromecast Remote 已实现语音键双模式：短按第一次打开、第二次关闭；长按时持续录音，松手自动关闭。APP 还提供按型号保存的按键映射，可把方向、确认、返回、Home、YouTube、Netflix、信源、音量等按键改为常用 macOS 操作。
+## Build and run on macOS
 
-当前版本：`1.1.1`
+From the repository root:
 
-## 1.1.1 修复
-
-- 修复 Chromecast Voice Remote 使用一段时间后，短按偶尔只打开豆包、遥控器麦克风却未持续收音的问题。
-- 修复电脑 Option 关闭豆包时，较晚到达的音频状态可能短暂重新开启遥控器音频的问题。
-- 改进双遥控器同时连接时的会话隔离、开麦确认与有限重试。
-- 修复 X6 第一次短按开麦可能被误判为旧音频事件的问题。
-- 更新按键映射页中的 Chromecast Remote 产品图。
-
-## 1.1.0 新功能
-
-- 新增 Chromecast Voice Remote（VID `0x18D1` / PID `0x9450`）语音与按键支持。
-- 新增 X6 Remote 与 Chromecast Voice Remote 按键映射页面。
-- 豆包语音触发键可选择 Option、Command、Control、Shift 或 Fn，默认 Option；所选按键必须与豆包输入法设置一致。
-- 映射设置跟随型号，不绑定某一只遥控器；更换同型号设备后继续沿用。
-- 启用映射后拦截设备原始动作，再由 vRemoter 发送所选键盘、媒体键或自定义快捷键；关闭映射即可恢复系统原行为。
-- 主控制台去掉 X6 专属措辞，X6 与 Chromecast Remote 可以同时连接。
-
-![vRemoter 1.1.0 音频控制台](docs/assets/screenshots/vremoter-audio-1.1.0.png)
-
-![vRemoter 1.1.0 Chromecast 按键映射](docs/assets/screenshots/vremoter-mapping-chromecast-1.1.0.png)
-
-完整历史见 [CHANGELOG.md](CHANGELOG.md)。
-
-当前支持边界：Chromecast 仅确认上述 VID/PID；X6 鼠标模式切换键由设备固件内部处理，不能单独重映射。语音键保留给豆包语音控制。Fn 的实际行为取决于 Mac 与豆包配置，建议首次使用时现场测试。
-
-## 支持开发
-
-vRemoter 免费提供。制作不易，麻烦打个赏补偿一点我的 Token 费吧。谢主隆恩🙏🙏🙏～～～
-
-| 微信 / WeChat | 支付宝 / Alipay | PayPal |
-|---|---|---|
-| <img src="docs/assets/donate/wechat.JPG" alt="微信打赏二维码" width="220"> | <img src="docs/assets/donate/alipay.JPG" alt="支付宝打赏二维码" width="220"> | <img src="docs/assets/donate/paypal.JPG" alt="PayPal donation QR code" width="220"> |
-
-## 仓库与公开服务边界
-
-| 内容 | 位置 | 是否公开 |
-|---|---|---|
-| APP、驱动构建、测试与设计 | 本 GitHub 仓库 | 是 |
-| 官网静态源文件 | `docs/` | 是，部署结果见官网 |
-| 官网 | [vremoter.vincentstudio.org](https://vremoter.vincentstudio.org/) | 是 |
-| 更新、PKG/DMG、购买配置 | [updates.vincentstudio.org/vremoter](https://updates.vincentstudio.org/vremoter/) | 是 |
-| 原始宣传视频与市场素材 | 仓库外 `../marketing/` | 否，不上传 Git |
-
-遥控器相关 GitHub 仓库：
-
-- [VincentKingHsu/vRemoter](https://github.com/VincentKingHsu/vRemoter)
-- [VincentKingHsu/x6-remote-voice-bridge](https://github.com/VincentKingHsu/x6-remote-voice-bridge)
-- [VincentKingHsu/MiRemoteVoice](https://github.com/VincentKingHsu/MiRemoteVoice)
-
-## 目录
-
-- `Sources/vRemote/`：APP 主程序、BLE/ATVV、双麦混音、UI、更新与购买配置。
-- `Driver/`：生成 `vRemoteDriver.driver` 的实验性构建脚本。
-- `Packaging/`：APP 元数据、本地化与 PKG 安装脚本。
-- `Resources/`：APP 内置权限向导、商业入口与支持开发图片。
-- `SelfTests/`：硬件协议与更新配置回归数据。
-- `Design/`：冻结 UI 和 Logo 的 Figma 本地插件源稿。
-- `docs/`：公开官网静态源文件。
-- `Server/`：马来西亚服务器配置与发布清单模板。
-- `OPERATIONS.md`：从构建到上线和回滚的操作手册。
-
-## 构建
-
-```bash
-./run-self-tests.sh
-./package-app.sh
-./build-pkg.sh
-./build-dmg.sh
+```sh
+swift build
+swift run
 ```
 
-- `PKG`：首次安装或驱动发生变化时使用，包含 APP 与音频驱动。
-- `DMG`：仅更新 APP，适合已经安装过驱动且本次驱动未变化的用户。
+Use the menu-bar icon to open the console or quit. The Dock icon is optional.
+For realistic macOS permission testing, use a consistently located app bundle:
 
-1.1.1 的驱动没有变化：PKG 供首次安装，DMG 供已经安装过驱动的用户覆盖更新。当前发布包尚未完成 Developer ID 签名与公证，下载页必须明确标注这一状态；正式广泛分发前仍须完成签名、公证与真实机器安装验证。
+```sh
+zsh package-app.sh
+python3 Tools/check-app-bundle.py dist/build/vRemote.app
+```
 
-## 更新策略
+This creates `dist/build/vRemote.app`, including active artwork, permission
+help and license notices, and applies an **ad-hoc development signature**.
+It does not perform Developer ID signing or notarization.
 
-APP 从以下地址读取版本清单：
+Optional local installation, only when you intend to replace your existing
+`~/Applications/vRemote.app`:
 
-`https://updates.vincentstudio.org/vremoter/releases.json`
+```sh
+zsh install-app.sh
+open "$HOME/Applications/vRemote.app"
+```
 
-- 普通 APP 更新：清单中同时提供 DMG/PKG，APP 自动优先下载 DMG。
-- 驱动更新：将 `driver_update_required` 设为 `true`，APP 强制下载 PKG。
-- 首次安装：官网始终推荐 PKG。
+`install-app.sh` replaces that app directory; it does not install the audio driver
+or grant permissions. A terminal-launched SwiftPM build having access is not proof
+that the packaged app has access. See [permission testing](docs/PERMISSION_REQUESTS.md).
+The DMG and PKG scripts are development machinery: the PKG path additionally
+builds/includes a modified driver and is not cleared for distribution.
 
-购买链接从以下地址动态读取：
+## First use
 
-`https://updates.vincentstudio.org/vremoter/commerce.json`
+1. Choose the speech tool in the seven-step setup. Select its application and
+   configure its recording shortcut; a custom tool requires a real compatibility test
+2. Pair the remote in macOS Bluetooth settings and check that both HID buttons
+   and BLE voice are connected. They are separate channels
+3. Request the needed permissions, approve them in macOS, then recheck and
+   reconnect. The app does not request Mac microphone capture for this runtime;
+   the speech tool controls its own microphone permission
+4. Choose the remote's hold/toggle mode and the speech tool's shortcut mode
+   independently. Select the virtual route that feeds the tool
+5. Run the real speech trial with the physical black voice key. Success requires
+   new remote PCM, a completed session and your confirmation of recognized text.
+   A test tone or hand-typed text alone cannot complete the trial
+6. Configure the real photo-based button map, then finish setup. Single, double
+   and long press can send shortcuts, open/switch applications or scroll;
+   the voice key stays reserved
 
-修改公开配置即可控制购买入口，不需要重新发布 APP。没有启用且有效的购买链接时，APP 会隐藏“购买遥控器”按钮。
+Settings has four pages: Voice & Audio, Remote, Permissions & Diagnostics, and
+Settings. Active voice state, elapsed time, input meter and Stop remain available
+across pages. A green menu-bar dot indicates actual received voice data; it is
+not a connection or recognition-success indicator. Configuration changes are
+disabled during a voice session.
 
-## 发布前阻断项
+System/Simplified Chinese/Traditional Chinese/English language selection applies
+immediately and is app-local. It is available in Settings, the setup sidebar and
+the menu bar. Unsupported system languages fall back to English. See
+[localization and copy coverage](docs/LOCALIZATION.md).
 
-1. 当前驱动是对 BlackHole GPL v3 二进制的修改构建。公开分发前必须选择：提供驱动对应源码与构建材料，或取得适用于闭源分发的商业授权。
-2. APP、驱动与 PKG/DMG 尚需 Developer ID 签名和 notarization。
-3. 每次发布都要验证首次 PKG 安装、DMG 覆盖更新、自动检查更新、购买链接刷新和卸载/回滚。
+Light/Dark/System appearance, Dock visibility, launch at login, an app-local
+remote display name, and bounded configuration import/export/reset are supported.
+Import/reset asks for confirmation and offers export first. Archives exclude
+pairing, credentials, recordings, logs, permissions and login items. Old v1
+Chromecast archives may contain historical X6 mapping fields; import ignores
+those known fields and rejects unknown keys or standalone X6 archives.
+Obsolete on-disk preferences are left untouched.
 
-## 相关文档
+## Debug a connection or recording problem
 
-- [完整发布与服务器运维手册](OPERATIONS.md)
-- [第三方许可说明](THIRD_PARTY_NOTICES.md)
-- [音频驱动说明](Driver/README.md)
-- [冻结 UI 说明](Design/vRemoter-UI-v1-Frozen/UI-FREEZE.md)
+- Check HID and BLE separately in Permissions & Diagnostics. A permission grant
+  does not establish connection, usable audio or recognition
+- Check the selected virtual route and the tool's input/shortcut configuration.
+  A missing route fails closed; an optional test tone tests routing, not recognition
+- Test real buttons and actual speech. Volume, power or input configured for IR
+  may never produce a Mac HID report. A local display-name change does not rename
+  Bluetooth or bind a specific physical remote to this Mac
+- Enable Logs from the menu bar when needed. The log is
+  `~/Library/Logs/vRemote/vRemote.log`; file logging is off by default
+- Optional Debug recordings saves local WAV/raw data under
+  `~/Library/Application Support/vRemote/Recordings`. It is off by default;
+  recordings can contain private speech, so inspect them before sharing
+- For low-level button diagnosis on a Mac, `Tools/hid-report-probe.swift` accepts
+  vendor/product hex arguments (`18d1 9450`). It is a developer aid, not an audio test
+
+BLE reconnection still expects the name hint `Chromecast Remote`; changing the
+system Bluetooth name can affect discovery. Multiple remotes/computers and
+explicit device binding are deferred in [TODO.md](TODO.md).
+
+## Test
+
+On macOS with the tools above:
+
+```sh
+swift build
+zsh run-self-tests.sh
+VREMOTE_VOICE_TEST_REPETITIONS=20 bash Tools/test-chromecast-models.sh
+python3 Tools/check-mapping-layout.py
+python3 Tools/check-native-interface.py
+python3 Tools/check-runtime-cleanup.py
+python3 Tools/check-branding.py
+python3 Tools/generate-placeholder-icon.py --check
+python3 Tools/test-package-contents.py
+node docs/prototypes/test-vremoter-onboarding-settings.cjs
+node docs/prototypes/test-vremoter-onboarding-settings.cjs docs/prototypes/vremoter-onboarding-settings.html
+git diff --check
+```
+
+The [macOS workflow](.github/workflows/chromecast-validation.yml) builds the app,
+runs protocol/model/source-contract regressions, mapping geometry, the offline
+prototype regression (Node.js 20) and packaging checks, builds the actual
+development app and checks bundled resources/notices. Check the result for
+the exact commit; an earlier passing run is not verification of new changes.
+
+Python source checks and the offline HTML test can run on Linux. Foundation-only
+Swift suites need `swiftc`; macOS-specific suites need Apple frameworks. The
+isolated packaging fixture uses stand-in build/signing tools and does not prove a
+real app works. CI cannot establish native rendering, permission transitions,
+physical remote behavior or recognition quality. Use the
+[release acceptance checklist](docs/CHROMECAST_ACCEPTANCE.md).
+
+## Source and documentation
+
+- [Product scope](PRODUCT.md) and [native architecture/settings](docs/NATIVE_INTERFACE_IMPLEMENTATION.md)
+- [Mapping layout and actions](docs/CHROMECAST_SCROLL_ACTIONS.md)
+- [Audio lifecycle](docs/chromecast-audio-resource-lifecycle.md) and [permissions](docs/PERMISSION_REQUESTS.md)
+- [Current neutral HTML reference, historical v8 archive and test](docs/prototypes/README.md), kept offline;
+  it simulates interactions and does not run the native app or real audio
+- [Cleanup inventory](docs/CLEANUP_REVIEW.md) and [ownership/source inventory](docs/PROJECT_OWNERSHIP_AND_LICENSES.md)
+- `Sources/vRemote/`: SwiftUI, HID/BLE/ATVV, voice/audio, mapping and system integration
+- `SelfTests/`, `Tools/`: regression suites and developer checks
+- `Resources/`: active remote artwork, generic placeholder icon and permission-help notes;
+  all three interface languages use native schematic permission illustrations
+- `Tools/generate-placeholder-icon.py`: reproducible letter-free geometric remote icon;
+  inherited logo sources and permission screenshots have been removed
+- [Historical changelog](CHANGELOG.md): inherited history, not a new release claim
+
+## Release blockers
+
+The repository retains the upstream [MIT license](LICENSE), source author headers
+and [third-party notices](THIRD_PARTY_NOTICES.md). Renaming or extracting shared
+code does not remove its provenance. Original commerce, donation, telemetry,
+update-service and promotional-site code have been removed; no replacement
+online service is configured.
+
+The modified BlackHole driver has separate GPLv3 obligations. Its binary-patching
+script does not establish a complete reproducible source release. Driver
+source/build provenance, the distribution license route, asset rights, signing,
+notarization and installation/hardware acceptance remain open. Visible branding
+now uses descriptive placeholders and a generic icon. Bundle/signing/login-item,
+package/executable/app-folder, preferences/storage/archive and driver identities
+remain unchanged until a coordinated migration is designed.
+See the [ownership and release decisions](docs/PROJECT_OWNERSHIP_AND_LICENSES.md).

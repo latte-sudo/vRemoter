@@ -15,7 +15,7 @@ ditto "$SCRIPT_DIR/dist/build/vRemote.app" "$STAGING/vRemote.app"
 ln -s /Applications "$STAGING/Applications"
 
 hdiutil create \
-  -volname "vRemoter $VERSION" \
+  -volname "Remote Voice Utility $VERSION" \
   -srcfolder "$STAGING" \
   -ov \
   -format UDZO \

@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import IOKit.hid
 
@@ -57,14 +58,21 @@ final class ChromecastRemoteHIDBridge {
     static let productID = 0x9450
 
     var onConnectionChanged: ((Bool) -> Void)?
+    var onButtonObserved: ((String) -> Void)?
 
     private var manager: IOHIDManager?
     private var activeDevice: IOHIDDevice?
     private var remappingEnabled = RemoteMappingStore.shared.isEnabled(.chromecast)
     private var lastButtonID: String?
+    private let mappingController = RemoteButtonMappingController()
+    private var sleepObserver: NSObjectProtocol?
 
     func start() {
         stop()
+        mappingController.start()
+        sleepObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.willSleepNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.mappingController.cancelHeldActions() }
         let manager = IOHIDManagerCreate(
             kCFAllocatorDefault,
             IOOptionBits(kIOHIDOptionsTypeNone)
@@ -116,6 +124,7 @@ final class ChromecastRemoteHIDBridge {
                 CFRunLoopGetMain(),
                 CFRunLoopMode.commonModes.rawValue
             )
+            mappingController.stop()
             return
         }
         self.manager = manager
@@ -123,6 +132,11 @@ final class ChromecastRemoteHIDBridge {
     }
 
     func stop() {
+        mappingController.stop()
+        if let sleepObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(sleepObserver)
+            self.sleepObserver = nil
+        }
         activeDevice = nil
         lastButtonID = nil
         onConnectionChanged?(false)
@@ -160,6 +174,8 @@ final class ChromecastRemoteHIDBridge {
 
     fileprivate func deviceDidRemove(_ device: IOHIDDevice) {
         guard let activeDevice, CFEqual(activeDevice, device) else { return }
+        mappingController.disconnected()
+        lastButtonID = nil
         self.activeDevice = nil
         onConnectionChanged?(false)
         print("[CAST-HID] disconnected")
@@ -185,21 +201,12 @@ final class ChromecastRemoteHIDBridge {
             apply(buttonID: previous, isDown: false)
         }
         lastButtonID = buttonID
+        onButtonObserved?(buttonID)
         apply(buttonID: buttonID, isDown: true)
     }
 
     private func apply(buttonID: String, isDown: Bool) {
-        guard remappingEnabled,
-              let button = RemoteProfiles.chromecastButtons.first(
-                where: { $0.id == buttonID }
-              )
-        else { return }
-        let store = RemoteMappingStore.shared
-        store.post(button: button, remote: .chromecast, isDown: isDown)
-        print(
-            "[CAST-MAP] \(button.title) " +
-            "\(isDown ? "DOWN" : "UP") -> " +
-            store.targetTitle(for: button, remote: .chromecast)
-        )
+        guard remappingEnabled else { return }
+        mappingController.handle(buttonID: buttonID, isDown: isDown)
     }
 }

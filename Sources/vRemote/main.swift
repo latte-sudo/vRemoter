@@ -1,19 +1,12 @@
-// vRemote for macOS.
+// vRemote for macOS 12+ — Chromecast-focused runtime.
 //
-// 1. Supported remote voice key → matching Option toggle semantics
-// 2. Remote ATVV + Mac microphone → aligned mix → vRemoteDr 2ch → Doubao
-// 3. A physical Mac Option key controls the same remote microphone session
+// Remote ATVV audio -> selected virtual route -> user-selected speech tool.
+// Physical remote and target shortcut modes are configured independently.
+// Mac microphone capture is disabled for this product, including upgrades.
+// Keyboard trigger observation and voice contracts are shared, neutral helpers.
+// See docs/NATIVE_INTERFACE_IMPLEMENTATION.md.
 //
-// macOS-only. Requires:
-//   * X6-Remote or Chromecast Remote paired in System Settings → Bluetooth
-//   * Accessibility permission (System Settings → Privacy & Security →
-//     Accessibility) for Option observation and Search suppression
-//   * vRemoteDriver.driver installed and visible as vRemoteDr 2ch in
-//     System Settings → Sound → Input/Output
-//   * Doubao IME configured for Option-as-voice-mode trigger
-//
-// Run:   swift run
-// Quit:  menu bar icon → 退出, or Ctrl+C
+// Run: swift run. Quit: menu bar icon -> Quit, or Ctrl+C.
 
 import AppKit
 import CoreGraphics
@@ -32,64 +25,56 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var recordingSizeItem: NSMenuItem!
     private var languageItems: [AppLanguage: NSMenuItem] = [:]
 
-    private var x6HIDConnected = false
-    private var x6BLEConnected = false
-    private var x6RemoteStreaming = false
     private var chromecastHIDConnected = false
     private var chromecastBLEConnected = false
     private var chromecastRemoteStreaming = false
-    private var remoteStreaming = false
+    private var menuStatusSummary = L10n.tr("shell.window.title")
+    private var voiceReception = MenuBarVoiceReception()
+    private var voiceReceptionTimer: Timer?
+    private var renderedVoiceReception: Bool?
 
-    private var lastVoiceRemote: VoiceRemoteID?
-
-    private let x6 = X6HIDBridge()
     private let chromecastHID = ChromecastRemoteHIDBridge()
-    private let x6SearchSuppressor = X6SearchSuppressor()
+    private let keyboardTriggerObserver = KeyboardTriggerObserver()
     private let doubaoAudioState = DoubaoAudioStateMonitor()
-    private lazy var x6Session = X6SessionCoordinator(
-        doubaoState: doubaoAudioState
-    )
+    private lazy var chromecastSession = ChromecastVoiceSessionController(doubaoState: doubaoAudioState)
+    private var sleepObserver: NSObjectProtocol?
     private let debugWindow = DebugWindowController()
-    private let updateWindow = UpdateWindowController()
-    private let x6BLE = BLEBridge(
-        nameHint: "X6-Remote",
-        savedUUIDFilename: "x6-uuid.txt",
-        recordingPrefix: "x6-voice",
-        logTag: "X6-BLE",
-        resetSessionOnConnect: true
-    )
     private let chromecastBLE = BLEBridge(
         nameHint: "Chromecast Remote",
         savedUUIDFilename: "chromecast-remote-uuid.txt",
         recordingPrefix: "chromecast-remote-voice",
         logTag: "CAST-BLE",
-        resetSessionOnConnect: true
+        resetSessionOnConnect: true,
+        tracksPhysicalVoiceEdges: true
     )
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
         AppStorage.prepare()
-        AppAnalytics.configure()
-        // Keep one continuous diagnostic history while X6 is being tuned.
+        AppAppearanceController.apply(AppAppearance.selected())
+        DockVisibilityController.apply(DockVisibilityPreference.isVisible())
+        // This release intentionally supports only remote audio, including upgrades.
+        AppStorage.macInputEnabled = false
+        AppStorage.remoteInputEnabled = true
+        // SwiftUI may have initialized the shared pipe before didFinishLaunching.
+        // Update its cached flags too, before any HID/BLE/session can start.
+        AudioPipe.shared.setInputEnabled(mac: false, remote: true)
+        // Keep one diagnostic history for transport troubleshooting.
         // Log.swift rotates at 5 MB; only the explicit menu action clears it.
-        Log.setEnabled(true)
+        Log.setEnabled(AppStorage.loggingEnabled)
         let appVersion = Bundle.main.object(
             forInfoDictionaryKey: "CFBundleShortVersionString"
         ) as? String ?? "development"
-        print("[APP] ===== vRemoter \(appVersion) started =====")
+        print("[APP] ===== \(L10n.tr("shell.window.title")) \(appVersion) started =====")
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        let statusImage = LogoAsset.image.copy() as? NSImage
-        statusImage?.size = NSSize(width: 18, height: 18)
-        statusItem.button?.image = statusImage
+        statusItem.button?.image = MenuBarStatusIcon.image(receivingVoice: false)
         statusItem.button?.imagePosition = .imageOnly
         statusItem.button?.title = ""
         NSApp.applicationIconImage = LogoAsset.image
 
         let menu = NSMenu()
         menu.delegate = self
-        let header = NSMenuItem(
-            title: L10n.text("状态 · 启动中", "Status · Starting"),
+        let header = localizedMenuItem("shell.status.starting",
             action: nil,
             keyEquivalent: ""
         )
@@ -97,8 +82,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(header)
         headerLabel = header
 
-        let launch = NSMenuItem(
-            title: L10n.text("登录时自动启动", "Launch at login"),
+        let launch = localizedMenuItem("shell.menu.launch_at_login",
             action: #selector(toggleLaunchAtLogin),
             keyEquivalent: ""
         )
@@ -113,25 +97,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(makeLanguageMenu())
 
         menu.addItem(.separator())
-        let updates = NSMenuItem(
-            title: L10n.text("版本与更新…", "Version & Updates…"),
-            action: #selector(openVersionUpdates),
-            keyEquivalent: ""
-        )
-        updates.target = self
-        menu.addItem(updates)
-
-        let donation = NSMenuItem(
-            title: L10n.text("打赏", "Buy me a coffee"),
-            action: #selector(openDonation),
-            keyEquivalent: ""
-        )
-        donation.target = self
-        menu.addItem(donation)
-
-        menu.addItem(.separator())
-        let quit = NSMenuItem(
-            title: L10n.text("退出", "Quit"),
+        let quit = localizedMenuItem("shell.menu.quit",
             action: #selector(quit),
             keyEquivalent: "q"
         )
@@ -140,204 +106,129 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.menu = menu
         refreshMenuState()
         wireDebugWindow()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(languageDidChange),
+            name: .appLanguageDidChange,
+            object: nil
+        )
 
-        // X6 HID observation and ATVV audio are independent connections.
-        x6.onConnectionChanged = { [weak self] connected in
-            self?.x6HIDConnected = connected
-            AppAnalytics.signal(
-                connected ? "Remote.HID.connected" : "Remote.HID.disconnected"
-            )
-            self?.updateStatus()
-        }
-        // X6 does not emit a dependable HID edge on its first short press.
-        // HID remains observation/search-suppression only; immediate voice
-        // session control comes from AUDIO_START/AUDIO_STOP below.
-        x6.onShortPress = { [weak self] in
-            self?.x6Session.remoteHIDShortPress()
-        }
-        x6.onLongPressEnded = { [weak self] in
-            self?.x6Session.remoteHIDLongPressEnded()
-        }
-        x6.onNativeSearchEdge = { [weak self] in
-            self?.x6SearchSuppressor.arm()
-        }
-        x6SearchSuppressor.onTriggerDownObserved = { [weak self] synthetic in
-            self?.x6Session.triggerDownObserved(isSynthetic: synthetic)
-        }
-        x6SearchSuppressor.onTriggerUpObserved = { [weak self] synthetic in
-            self?.x6Session.triggerUpObserved(isSynthetic: synthetic)
-        }
-        x6BLE.onConnectionChanged = { [weak self] connected in
-            self?.x6BLEConnected = connected
-            AppAnalytics.signal(
-                connected ? "Remote.BLE.connected" : "Remote.BLE.disconnected"
-            )
-            if !connected {
-                self?.x6RemoteStreaming = false
-                self?.x6Session.remoteDisconnected(.x6)
-            }
-            self?.refreshCombinedStreaming()
-            self?.updateStatus()
-        }
-        x6BLE.onStreamingChanged = { [weak self] streaming, _ in
-            self?.x6RemoteStreaming = streaming
-            AppAnalytics.signal(streaming ? "Voice.started" : "Voice.stopped")
-            self?.refreshCombinedStreaming()
-            self?.updateStatus()
-        }
-        x6BLE.onAudioStarted = { [weak self] reason, _ in
-            self?.lastVoiceRemote = .x6
-            self?.x6Session.remoteAudioStarted(
-                remote: .x6,
-                reason: reason
-            )
-        }
-        x6BLE.onAudioStopped = { [weak self] reason in
-            self?.x6Session.remoteAudioStopped(remote: .x6, reason: reason)
-        }
-        x6BLE.onMicrophoneOpenFailed = { [weak self] code in
-            self?.x6Session.remoteMicrophoneOpenFailed(
-                remote: .x6,
-                code: code
-            )
-        }
-        x6BLE.onLevel = { [weak self] db, _ in
-            guard AudioPipe.shared.isRemoteInputEnabled else { return }
-            self?.debugWindow.updateRemoteLevel(db)
-        }
         chromecastHID.onConnectionChanged = { [weak self] connected in
             self?.chromecastHIDConnected = connected
-            AppAnalytics.signal(
-                connected
-                    ? "Remote.Chromecast.HID.connected"
-                    : "Remote.Chromecast.HID.disconnected"
-            )
             self?.updateStatus()
         }
         chromecastBLE.onConnectionChanged = { [weak self] connected in
             self?.chromecastBLEConnected = connected
-            AppAnalytics.signal(
-                connected
-                    ? "Remote.Chromecast.BLE.connected"
-                    : "Remote.Chromecast.BLE.disconnected"
-            )
             if !connected {
                 self?.chromecastRemoteStreaming = false
-                self?.x6Session.remoteDisconnected(.chromecast)
+                self?.chromecastSession.disconnected()
             }
-            self?.refreshCombinedStreaming()
             self?.updateStatus()
         }
         chromecastBLE.onStreamingChanged = { [weak self] streaming, _ in
             self?.chromecastRemoteStreaming = streaming
-            AppAnalytics.signal(
-                streaming
-                    ? "Voice.Chromecast.started"
-                    : "Voice.Chromecast.stopped"
-            )
-            self?.refreshCombinedStreaming()
             self?.updateStatus()
         }
         chromecastBLE.onAudioStarted = { [weak self] reason, _ in
-            self?.lastVoiceRemote = .chromecast
-            self?.x6Session.remoteAudioStarted(
-                remote: .chromecast,
-                reason: reason,
-                supportsPhysicalHoldGesture: true
-            )
+            guard AudioPipe.shared.isOutputDeviceAvailable else {
+                self?.chromecastSession.outputRouteUnavailable()
+                return
+            }
+            if reason == 0x03 { self?.debugWindow.observedButton("voice") }
+            self?.chromecastSession.remoteAudioStarted(reason: reason)
         }
         chromecastBLE.onAudioStopped = { [weak self] reason in
-            self?.x6Session.remoteAudioStopped(
-                remote: .chromecast,
-                reason: reason
-            )
+            self?.chromecastSession.remoteAudioStopped(reason: reason)
         }
         chromecastBLE.onMicrophoneOpenFailed = { [weak self] code in
-            self?.x6Session.remoteMicrophoneOpenFailed(
-                remote: .chromecast,
-                code: code
-            )
+            self?.chromecastSession.remoteMicrophoneOpenFailed(code: code)
+        }
+        chromecastBLE.onPCMReceived = { [weak self] in
+            guard let self else { return }
+            self.chromecastSession.remotePCMReceived()
+            self.debugWindow.receivedAudioPacket()
+            self.voiceReception.update(phase: self.chromecastSession.presentation.phase,
+                                       streaming: self.chromecastRemoteStreaming)
+            self.voiceReception.receivedPacket(at: ProcessInfo.processInfo.systemUptime)
+            self.updateMenuVoiceIndicator()
+            if self.voiceReception.isReceiving(at: ProcessInfo.processInfo.systemUptime), self.voiceReceptionTimer == nil {
+                let timer = Timer(timeInterval: 0.2, repeats: true) { [weak self] _ in
+                    self?.updateMenuVoiceIndicator()
+                }
+                self.voiceReceptionTimer = timer
+                RunLoop.main.add(timer, forMode: .common)
+            }
         }
         chromecastBLE.onLevel = { [weak self] db, _ in
             guard AudioPipe.shared.isRemoteInputEnabled else { return }
             self?.debugWindow.updateRemoteLevel(db)
         }
-        x6Session.preferredRemoteProvider = { [weak self] in
-            self?.preferredVoiceRemote()
+        chromecastSession.onMicrophoneOpenRequested = { [weak self] bypass in
+            guard let self, self.chromecastBLEConnected else { return .unavailable }
+            return self.chromecastBLE.openMicrophone(bypassDebounce: bypass)
         }
-        x6Session.onMicrophoneCloseRequested = { [weak self] in
-            self?.closeAllRemoteMicrophones()
+        chromecastSession.onMicrophoneCloseRequested = { [weak self] in
+            self?.chromecastBLE.closeMicrophone(force: true)
         }
-        x6Session.onMicrophoneOpenRequested = {
-            [weak self] remote, bypassDebounce in
-            guard AudioPipe.shared.isRemoteInputEnabled else {
-                print("[AUDIO] 遥控器未勾选，跳过主动开麦")
-                return .unavailable
-            }
-            return self?.openRemoteMicrophone(
-                remote,
-                bypassDebounce: bypassDebounce
-            ) ?? .unavailable
+        chromecastSession.onStateChanged = { [weak self] _ in self?.updateStatus() }
+        chromecastSession.onPresentationChanged = { [weak self] presentation in
+            guard let self else { return }
+            self.debugWindow.voiceStateChanged(presentation, active: self.chromecastSession.isActive)
+            self.updateMenuVoiceIndicator()
         }
-        x6Session.onStateChanged = { [weak self] status in
-            self?.headerLabel.title = "状态 · \(status)"
-            self?.updateStatus()
+        chromecastSession.onSessionEnded = { [weak self] in self?.debugWindow.voiceSessionEnded() }
+        chromecastHID.onButtonObserved = { [weak self] id in self?.debugWindow.observedButton(id) }
+        keyboardTriggerObserver.onTriggerDownObserved = { [weak self] synthetic in
+            guard let self, self.chromecastBLEConnected, AudioPipe.shared.isOutputDeviceAvailable else { return }
+            self.chromecastSession.triggerDownObserved(isSynthetic: synthetic)
         }
-        x6Session.start()
-        x6SearchSuppressor.start()
-        x6.start()
-        x6BLE.start()
+        keyboardTriggerObserver.onTriggerUpObserved = { [weak self] synthetic in
+            self?.chromecastSession.triggerUpObserved(isSynthetic: synthetic)
+        }
+        chromecastSession.start()
+        keyboardTriggerObserver.start()
+        sleepObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.willSleepNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.stopMicrophoneNow() }
         chromecastHID.start()
         chromecastBLE.start()
 
-        // Start the loopback engine eagerly so device binding is verified
-        // before the first BLE audio packet arrives.
+        // Discover the selected route eagerly without starting an audio IOProc.
+        // Each session acquires output before sending its target shortcut.
         _ = AudioPipe.shared
         AudioPipe.shared.onMacLevel = { [weak self] db in
             self?.debugWindow.updateMacLevel(db)
         }
+        AudioPipe.shared.onResourcesInvalidated = { [weak self] in
+            self?.chromecastSession.outputRouteUnavailable()
+        }
         AudioPipe.shared.onRouteChanged = { [weak self] _ in
             self?.updateStatus()
         }
+        // Show the persisted remote label even when no connection event arrives.
+        updateStatus()
 
         DispatchQueue.main.async { [weak self] in
             self?.debugWindow.show()
         }
-        if CommandLine.arguments.contains("--purchase-demo") {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                self?.debugWindow.showPurchase()
-            }
-        } else if CommandLine.arguments.contains("--update-available-demo") {
-            print("[UPDATE] update-available demo requested")
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                self?.updateWindow.showDemoUpdate()
-            }
-        } else if CommandLine.arguments.contains("--update-current-demo") {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                self?.updateWindow.showUpToDateDemo()
-            }
-        } else if CommandLine.arguments.contains("--updates-window-demo") {
-            print("[UPDATE] updates-window demo requested")
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                self?.updateWindow.show()
-            }
-        } else {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
-                self?.updateWindow.checkAutomatically()
-            }
-        }
     }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        debugWindow.show()
+        return true
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     func menuWillOpen(_ menu: NSMenu) {
         refreshMenuState()
     }
 
     private func makeLogMenu() -> NSMenuItem {
-        let root = NSMenuItem(title: L10n.text("日志", "Logs"), action: nil, keyEquivalent: "")
-        let submenu = NSMenu(title: L10n.text("日志", "Logs"))
+        let root = localizedMenuItem("shell.menu.logs", action: nil, keyEquivalent: "")
+        let submenu = NSMenu(title: L10n.tr("shell.menu.logs"))
 
-        let toggle = NSMenuItem(
-            title: L10n.text("记录日志", "Record logs"),
+        let toggle = localizedMenuItem("shell.menu.record_logs",
             action: #selector(toggleLogging),
             keyEquivalent: ""
         )
@@ -345,29 +236,26 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         submenu.addItem(toggle)
         loggingToggleItem = toggle
 
-        let size = NSMenuItem(title: L10n.text("占用 · 0 字节", "Size · 0 bytes"), action: nil, keyEquivalent: "")
+        let size = localizedMenuItem("shell.storage.empty", action: nil, keyEquivalent: "")
         size.isEnabled = false
         submenu.addItem(size)
         logSizeItem = size
 
-        let refresh = NSMenuItem(
-            title: L10n.text("刷新占用大小", "Refresh size"),
+        let refresh = localizedMenuItem("shell.storage.refresh",
             action: #selector(refreshStorageSizes),
             keyEquivalent: ""
         )
         refresh.target = self
         submenu.addItem(refresh)
 
-        let open = NSMenuItem(
-            title: L10n.text("打开日志文件夹", "Open logs folder"),
+        let open = localizedMenuItem("shell.menu.open_logs",
             action: #selector(openLogFolder),
             keyEquivalent: ""
         )
         open.target = self
         submenu.addItem(open)
 
-        let clear = NSMenuItem(
-            title: L10n.text("清空日志", "Clear logs"),
+        let clear = localizedMenuItem("shell.menu.clear_logs",
             action: #selector(clearLog),
             keyEquivalent: ""
         )
@@ -379,27 +267,24 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func makeControlMenu() -> NSMenuItem {
-        let root = NSMenuItem(title: L10n.text("控制台", "Console"), action: nil, keyEquivalent: "")
-        let submenu = NSMenu(title: L10n.text("控制台", "Console"))
+        let root = localizedMenuItem("shell.menu.controls", action: nil, keyEquivalent: "")
+        let submenu = NSMenu(title: L10n.tr("shell.menu.controls"))
 
-        let open = NSMenuItem(
-            title: L10n.text("打开前台控制台", "Open console"),
+        let open = localizedMenuItem("shell.menu.open_controls",
             action: #selector(openDebugWindow),
             keyEquivalent: ""
         )
         open.target = self
         submenu.addItem(open)
 
-        let stop = NSMenuItem(
-            title: L10n.text("关闭麦克风", "Stop microphone"),
+        let stop = localizedMenuItem("shell.menu.stop_voice",
             action: #selector(stopMicrophone),
             keyEquivalent: ""
         )
         stop.target = self
         submenu.addItem(stop)
 
-        let restart = NSMenuItem(
-            title: L10n.text("重启 App", "Restart app"),
+        let restart = localizedMenuItem("shell.menu.restart",
             action: #selector(restartApp),
             keyEquivalent: ""
         )
@@ -411,11 +296,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func makeRecordingMenu() -> NSMenuItem {
-        let root = NSMenuItem(title: L10n.text("调试录音", "Debug recordings"), action: nil, keyEquivalent: "")
-        let submenu = NSMenu(title: L10n.text("调试录音", "Debug recordings"))
+        let root = localizedMenuItem("shell.menu.recordings", action: nil, keyEquivalent: "")
+        let submenu = NSMenu(title: L10n.tr("shell.menu.recordings"))
 
-        let toggle = NSMenuItem(
-            title: L10n.text("保存 WAV 与原始数据", "Save WAV and raw data"),
+        let toggle = localizedMenuItem("shell.menu.save_recordings",
             action: #selector(toggleRecording),
             keyEquivalent: ""
         )
@@ -423,29 +307,26 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         submenu.addItem(toggle)
         recordingToggleItem = toggle
 
-        let size = NSMenuItem(title: L10n.text("占用 · 0 字节", "Size · 0 bytes"), action: nil, keyEquivalent: "")
+        let size = localizedMenuItem("shell.storage.empty", action: nil, keyEquivalent: "")
         size.isEnabled = false
         submenu.addItem(size)
         recordingSizeItem = size
 
-        let refresh = NSMenuItem(
-            title: L10n.text("刷新占用大小", "Refresh size"),
+        let refresh = localizedMenuItem("shell.storage.refresh",
             action: #selector(refreshStorageSizes),
             keyEquivalent: ""
         )
         refresh.target = self
         submenu.addItem(refresh)
 
-        let open = NSMenuItem(
-            title: L10n.text("打开录音文件夹", "Open recordings folder"),
+        let open = localizedMenuItem("shell.menu.open_recordings",
             action: #selector(openRecordingFolder),
             keyEquivalent: ""
         )
         open.target = self
         submenu.addItem(open)
 
-        let clear = NSMenuItem(
-            title: L10n.text("清空录音文件", "Clear recordings"),
+        let clear = localizedMenuItem("shell.menu.clear_recordings",
             action: #selector(clearRecordings),
             keyEquivalent: ""
         )
@@ -457,19 +338,20 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func makeLanguageMenu() -> NSMenuItem {
-        let root = NSMenuItem(
-            title: L10n.text("语言", "Language"),
+        let root = localizedMenuItem("shell.menu.language",
             action: nil,
             keyEquivalent: ""
         )
-        let submenu = NSMenu(title: L10n.text("语言", "Language"))
-        let options: [(AppLanguage, String, Selector)] = [
-            (.system, L10n.text("跟随系统", "System Default"), #selector(selectSystemLanguage)),
-            (.simplifiedChinese, "简体中文", #selector(selectSimplifiedChinese)),
-            (.english, "English", #selector(selectEnglish))
+        let submenu = NSMenu(title: L10n.tr("shell.menu.language"))
+        let options: [(AppLanguage, Selector)] = [
+            (.system, #selector(selectSystemLanguage)),
+            (.simplifiedChinese, #selector(selectSimplifiedChinese)),
+            (.traditionalChinese, #selector(selectTraditionalChinese)),
+            (.english, #selector(selectEnglish))
         ]
-        for (language, title, selector) in options {
-            let item = NSMenuItem(title: title, action: selector, keyEquivalent: "")
+        for (language, selector) in options {
+            let item = NSMenuItem(title: language.title, action: selector, keyEquivalent: "")
+            item.representedObject = language
             item.target = self
             item.state = AppLanguage.selected == language ? .on : .off
             submenu.addItem(item)
@@ -480,42 +362,59 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func updateStatus() {
-        let anyHID = x6HIDConnected || chromecastHIDConnected
-        let anyBLE = x6BLEConnected || chromecastBLEConnected
+        let remoteName = RemoteDisplayName.displayName()
         let doubaoSnapshot = doubaoAudioState.snapshotNow()
-        let doubaoUsesVRemote = doubaoSnapshot.inputDeviceNames.contains("vRemoteDr 2ch")
         let statusText: String
-        if doubaoSnapshot.isRecording && !doubaoUsesVRemote {
-            statusText = L10n.text("豆包输入设备错误", "Incorrect Doubao input")
-        } else if remoteStreaming {
-            statusText = L10n.text("遥控器录音中", "Remote recording")
-        } else if anyHID && anyBLE {
-            statusText = L10n.text("已就绪", "Ready")
-        } else if anyHID || anyBLE {
-            statusText = L10n.text("正在连接语音服务", "Connecting voice service")
+        if !chromecastHIDConnected && !chromecastBLEConnected {
+            statusText = L10n.tr("shell.status.waiting")
+        } else if !chromecastHIDConnected || !chromecastBLEConnected {
+            statusText = L10n.tr("shell.status.connecting")
+        } else if !chromecastSession.presentation.detail.isEmpty {
+            // Resolve the current presentation when drawing, so changing the
+            // language does not need to restart or interrupt a voice session.
+            statusText = chromecastSession.presentation.detail
         } else {
-            statusText = L10n.text("等待遥控器", "Waiting for remote")
+            statusText = L10n.tr("shell.status.ready")
         }
-        statusItem.button?.toolTip = "vRemoter · \(statusText)"
-        headerLabel.title = L10n.text("状态 · \(statusText)", "Status · \(statusText)")
+        menuStatusSummary = "\(L10n.tr("shell.window.title")) · \(remoteName) · \(statusText)"
+        updateMenuVoiceIndicator()
+        headerLabel.title = "\(remoteName) · \(statusText)"
         debugWindow.update(
             status: statusText,
-            hidConnected: anyHID,
-            bleConnected: anyBLE,
-            remoteStreaming: remoteStreaming,
+            hidConnected: chromecastHIDConnected,
+            bleConnected: chromecastBLEConnected,
+            remoteStreaming: chromecastRemoteStreaming,
             macInputEnabled: AudioPipe.shared.isMacInputEnabled,
             remoteInputEnabled: AudioPipe.shared.isRemoteInputEnabled,
             doubaoIsRecording: doubaoSnapshot.isRecording,
             doubaoInput: doubaoSnapshot.deviceSummary,
             driverAvailable: AudioPipe.shared.isOutputDeviceAvailable,
-            x6Connected: x6HIDConnected || x6BLEConnected,
             chromecastConnected: chromecastHIDConnected || chromecastBLEConnected,
             macLevelDB: nil,
             remoteLevelDB: nil
         )
     }
 
+    private func updateMenuVoiceIndicator() {
+        voiceReception.update(phase: chromecastSession.presentation.phase,
+                              streaming: chromecastRemoteStreaming)
+        let receiving = voiceReception.isReceiving(at: ProcessInfo.processInfo.systemUptime)
+        if renderedVoiceReception != receiving {
+            renderedVoiceReception = receiving
+            statusItem.button?.image = MenuBarStatusIcon.image(receivingVoice: receiving)
+        }
+        let receipt = receiving ? L10n.tr("shell.status.receiving") : ""
+        let label = menuStatusSummary + receipt
+        statusItem.button?.toolTip = label
+        statusItem.button?.setAccessibilityLabel(label)
+        if !receiving {
+            voiceReceptionTimer?.invalidate()
+            voiceReceptionTimer = nil
+        }
+    }
+
     private func wireDebugWindow() {
+        debugWindow.onRemoteDisplayNameChanged = { [weak self] in self?.updateStatus() }
         debugWindow.onStopMicrophone = { [weak self] in
             self?.stopMicrophoneNow()
         }
@@ -523,6 +422,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.restartAppNow()
         }
         debugWindow.onMacInputEnabledChanged = { [weak self] enabled in
+            self?.chromecastSession.configurationChanged()
             let audio = AudioPipe.shared
             audio.setInputEnabled(
                 mac: enabled,
@@ -531,27 +431,33 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.updateStatus()
         }
         debugWindow.onRemoteInputEnabledChanged = { [weak self] enabled in
+            self?.chromecastSession.configurationChanged()
             let audio = AudioPipe.shared
             audio.setInputEnabled(
                 mac: audio.isMacInputEnabled,
                 remote: enabled
             )
             if !enabled {
-                self?.x6BLE.closeMicrophone(force: true)
                 self?.chromecastBLE.closeMicrophone(force: true)
                 self?.debugWindow.updateRemoteLevel(-120)
-            } else if self?.doubaoAudioState.snapshotNow().isRecording == true {
-                self?.openPreferredRemoteMicrophone()
             }
             self?.updateStatus()
         }
+        debugWindow.onReconnectInputs = { [weak self] in
+            guard let self, !self.chromecastSession.isActive else { return }
+            self.chromecastHID.start()
+            self.keyboardTriggerObserver.start()
+            self.chromecastBLE.start()
+        }
+        debugWindow.onVoiceConfigurationChanged = { [weak self] in
+            self?.chromecastSession.configurationChanged()
+            self?.keyboardTriggerObserver.triggerConfigurationDidChange()
+        }
         debugWindow.onInputTriggerChanged = { [weak self] in
-            self?.x6SearchSuppressor.triggerConfigurationDidChange()
+            self?.keyboardTriggerObserver.triggerConfigurationDidChange()
         }
         debugWindow.onRemoteMappingEnabledChanged = { [weak self] remote, enabled in
             switch remote {
-            case .x6:
-                self?.x6.setRemappingEnabled(enabled)
             case .chromecast:
                 self?.chromecastHID.setRemappingEnabled(enabled)
             }
@@ -562,30 +468,51 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         debugWindow.show()
     }
 
-    @objc private func openDonation() {
-        debugWindow.showDonation()
-    }
-
-    @objc private func openVersionUpdates() {
-        updateWindow.show()
-    }
-
     @objc private func selectSystemLanguage() {
-        setLanguageAndRestart(.system)
+        AppLanguage.selected = .system
     }
 
     @objc private func selectSimplifiedChinese() {
-        setLanguageAndRestart(.simplifiedChinese)
+        AppLanguage.selected = .simplifiedChinese
+    }
+
+    @objc private func selectTraditionalChinese() {
+        AppLanguage.selected = .traditionalChinese
     }
 
     @objc private func selectEnglish() {
-        setLanguageAndRestart(.english)
+        AppLanguage.selected = .english
     }
 
-    private func setLanguageAndRestart(_ language: AppLanguage) {
-        guard AppLanguage.selected != language else { return }
-        AppLanguage.selected = language
-        restartAppNow()
+    @objc private func languageDidChange() {
+        if let menu = statusItem?.menu { refreshLocalizedMenu(menu) }
+        refreshMenuState()
+        updateStatus()
+    }
+
+    private func localizedMenuItem(
+        _ key: String,
+        action: Selector?,
+        keyEquivalent: String
+    ) -> NSMenuItem {
+        let item = NSMenuItem(title: L10n.tr(key), action: action, keyEquivalent: keyEquivalent)
+        item.representedObject = key
+        return item
+    }
+
+    private func refreshLocalizedMenu(_ menu: NSMenu) {
+        // Update the existing menu in place, including an open submenu.
+        for item in menu.items {
+            if let key = item.representedObject as? String {
+                item.title = L10n.tr(key)
+            } else if let language = item.representedObject as? AppLanguage {
+                item.title = language.title
+            }
+            if let submenu = item.submenu {
+                submenu.title = item.title
+                refreshLocalizedMenu(submenu)
+            }
+        }
     }
 
     @objc private func stopMicrophone() {
@@ -593,8 +520,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func stopMicrophoneNow() {
-        x6Session.forceClose()
-        x6BLE.closeMicrophone(force: true)
+        chromecastSession.forceClose()
         chromecastBLE.closeMicrophone(force: true)
         AudioPipe.shared.setRemoteActive(false)
         updateStatus()
@@ -623,66 +549,23 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    private func refreshCombinedStreaming() {
-        remoteStreaming = x6RemoteStreaming || chromecastRemoteStreaming
-    }
-
-    private func preferredVoiceRemote() -> VoiceRemoteID? {
-        if let lastVoiceRemote {
-            switch lastVoiceRemote {
-            case .x6 where x6BLEConnected:
-                return .x6
-            case .chromecast where chromecastBLEConnected:
-                return .chromecast
-            default:
-                break
-            }
-        }
-        if x6BLEConnected { return .x6 }
-        if chromecastBLEConnected { return .chromecast }
-        return nil
-    }
-
-    private func openRemoteMicrophone(
-        _ remote: VoiceRemoteID,
-        bypassDebounce: Bool
-    ) -> RemoteMicrophoneOpenResult {
-        switch remote {
-        case .x6:
-            guard x6BLEConnected else { return .unavailable }
-            return x6BLE.openMicrophone(bypassDebounce: bypassDebounce)
-        case .chromecast:
-            guard chromecastBLEConnected else { return .unavailable }
-            return chromecastBLE.openMicrophone(
-                bypassDebounce: bypassDebounce
-            )
-        }
-    }
-
-    private func openPreferredRemoteMicrophone() {
-        guard let remote = preferredVoiceRemote() else { return }
-        _ = openRemoteMicrophone(remote, bypassDebounce: false)
-    }
-
-    private func closeAllRemoteMicrophones() {
-        x6BLE.closeMicrophone(force: true)
-        chromecastBLE.closeMicrophone(force: true)
-    }
-
     private func refreshMenuState() {
         launchAtLoginItem?.state = LaunchAtLogin.isEnabled ? .on : .off
         loggingToggleItem?.state = Log.isEnabled ? .on : .off
         recordingToggleItem?.state = AppStorage.recordingEnabled ? .on : .off
+        for (language, item) in languageItems {
+            item.state = AppLanguage.selected == language ? .on : .off
+        }
         refreshSizeLabels()
     }
 
     private func refreshSizeLabels() {
-        logSizeItem?.title = L10n.text("占用", "Size")
+        logSizeItem?.title = L10n.tr("shell.storage.used")
             + " · \(AppStorage.formattedSize(Log.byteSize))"
         let recordingBytes = AppStorage.byteSize(
             of: AppStorage.recordingsDirectory
         )
-        recordingSizeItem?.title = L10n.text("占用", "Size")
+        recordingSizeItem?.title = L10n.tr("shell.storage.used")
             + " · \(AppStorage.formattedSize(recordingBytes))"
     }
 
@@ -690,10 +573,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         do {
             try LaunchAtLogin.setEnabled(!LaunchAtLogin.isEnabled)
         } catch {
-            headerLabel.title = L10n.text(
-                "状态 · 登录启动设置失败",
-                "Status · Launch-at-login failed"
-            )
+            headerLabel.title = L10n.tr("shell.status.login_failed")
         }
         refreshMenuState()
     }
@@ -709,7 +589,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func toggleRecording() {
         let enabled = !AppStorage.recordingEnabled
         AppStorage.recordingEnabled = enabled
-        x6BLE.setRecordingEnabled(enabled)
         chromecastBLE.setRecordingEnabled(enabled)
         refreshMenuState()
     }
@@ -734,7 +613,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func clearRecordings() {
-        x6BLE.clearRecordings()
+        chromecastBLE.clearRecordings()
         refreshSizeLabels()
     }
 
@@ -743,11 +622,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        x6.stop()
+        debugWindow.stopPermissionGuidance()
+        NotificationCenter.default.removeObserver(self, name: .appLanguageDidChange, object: nil)
+        voiceReceptionTimer?.invalidate()
+        voiceReceptionTimer = nil
         chromecastHID.stop()
-        x6SearchSuppressor.stop()
-        x6Session.stop()
-        x6BLE.stop()
+        keyboardTriggerObserver.stop()
+        chromecastSession.stop()
+        if let sleepObserver { NSWorkspace.shared.notificationCenter.removeObserver(sleepObserver) }
         chromecastBLE.stop()
         AudioPipe.shared.stop()
     }
@@ -755,11 +637,18 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
 // MARK: - Entry
 
-#if DEBUG
-if CommandLine.arguments.contains("--voice-session-self-test") {
-    exit(VoiceSessionSelfTest.run() ? EXIT_SUCCESS : EXIT_FAILURE)
+// A read-only packaging probe. Do not initialize AppKit, preferences, Bluetooth,
+// audio, login items or permission requesters during this check.
+if CommandLine.arguments.contains("--localization-self-test") {
+    let failures = L10n.validateBundledResources()
+    for failure in failures { FileHandle.standardError.write(Data((failure + "\n").utf8)) }
+    if !failures.isEmpty { exit(1) }
+    for language in L10n.supportedLanguages {
+        Swift.print("\(language.rawValue): \(L10n.text("language.title", language: language))")
+    }
+    Swift.print("PASS: running executable loaded all three bundled language tables")
+    exit(0)
 }
-#endif
 
 let app = NSApplication.shared
 let delegate = AppController()

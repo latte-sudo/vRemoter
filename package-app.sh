@@ -13,53 +13,50 @@ mkdir -p "$CONTENTS/MacOS"
 mkdir -p "$CONTENTS/Resources"
 cp "$SCRIPT_DIR/.build/release/vRemote" "$CONTENTS/MacOS/vRemote"
 cp "$SCRIPT_DIR/Packaging/Info.plist" "$CONTENTS/Info.plist"
-for resource_bundle in "$SCRIPT_DIR/.build/release/"*.bundle; do
-  [[ -d "$resource_bundle" ]] || continue
-  ditto "$resource_bundle" "$CONTENTS/Resources/${resource_bundle:t}"
+# App-owned language resources are also processed by SwiftPM for swift run.
+for language in en zh-Hans zh-Hant; do
+  ditto "$SCRIPT_DIR/Sources/vRemote/Resources/$language.lproj" \
+    "$CONTENTS/Resources/$language.lproj"
 done
 for localization in "$SCRIPT_DIR/Packaging"/*.lproj; do
   [[ -d "$localization" ]] || continue
   ditto "$localization" "$CONTENTS/Resources/${localization:t}"
 done
-cp "$SCRIPT_DIR/Design/vRemoter-Logo-v1/vRemoter-app-icon-v9.png" \
-  "$CONTENTS/Resources/vRemoterLogo.png"
+cp "$SCRIPT_DIR/Resources/AppIcon/placeholder-app-icon.png" \
+  "$CONTENTS/Resources/AppIcon.png"
 
-ICONSET="$SCRIPT_DIR/dist/vRemoter.iconset"
+ICONSET="$SCRIPT_DIR/dist/AppIcon.iconset"
 rm -rf "$ICONSET"
 mkdir -p "$ICONSET"
-sips -z 16 16 "$CONTENTS/Resources/vRemoterLogo.png" --out "$ICONSET/icon_16x16.png" >/dev/null
-sips -z 32 32 "$CONTENTS/Resources/vRemoterLogo.png" --out "$ICONSET/icon_16x16@2x.png" >/dev/null
-sips -z 32 32 "$CONTENTS/Resources/vRemoterLogo.png" --out "$ICONSET/icon_32x32.png" >/dev/null
-sips -z 64 64 "$CONTENTS/Resources/vRemoterLogo.png" --out "$ICONSET/icon_32x32@2x.png" >/dev/null
-sips -z 128 128 "$CONTENTS/Resources/vRemoterLogo.png" --out "$ICONSET/icon_128x128.png" >/dev/null
-sips -z 256 256 "$CONTENTS/Resources/vRemoterLogo.png" --out "$ICONSET/icon_128x128@2x.png" >/dev/null
-sips -z 256 256 "$CONTENTS/Resources/vRemoterLogo.png" --out "$ICONSET/icon_256x256.png" >/dev/null
-sips -z 512 512 "$CONTENTS/Resources/vRemoterLogo.png" --out "$ICONSET/icon_256x256@2x.png" >/dev/null
-sips -z 512 512 "$CONTENTS/Resources/vRemoterLogo.png" --out "$ICONSET/icon_512x512.png" >/dev/null
-cp "$CONTENTS/Resources/vRemoterLogo.png" "$ICONSET/icon_512x512@2x.png"
-iconutil -c icns "$ICONSET" -o "$CONTENTS/Resources/vRemoter.icns"
+sips -z 16 16 "$CONTENTS/Resources/AppIcon.png" --out "$ICONSET/icon_16x16.png" >/dev/null
+sips -z 32 32 "$CONTENTS/Resources/AppIcon.png" --out "$ICONSET/icon_16x16@2x.png" >/dev/null
+sips -z 32 32 "$CONTENTS/Resources/AppIcon.png" --out "$ICONSET/icon_32x32.png" >/dev/null
+sips -z 64 64 "$CONTENTS/Resources/AppIcon.png" --out "$ICONSET/icon_32x32@2x.png" >/dev/null
+sips -z 128 128 "$CONTENTS/Resources/AppIcon.png" --out "$ICONSET/icon_128x128.png" >/dev/null
+sips -z 256 256 "$CONTENTS/Resources/AppIcon.png" --out "$ICONSET/icon_128x128@2x.png" >/dev/null
+sips -z 256 256 "$CONTENTS/Resources/AppIcon.png" --out "$ICONSET/icon_256x256.png" >/dev/null
+sips -z 512 512 "$CONTENTS/Resources/AppIcon.png" --out "$ICONSET/icon_256x256@2x.png" >/dev/null
+sips -z 512 512 "$CONTENTS/Resources/AppIcon.png" --out "$ICONSET/icon_512x512.png" >/dev/null
+cp "$CONTENTS/Resources/AppIcon.png" "$ICONSET/icon_512x512@2x.png"
+iconutil -c icns "$ICONSET" -o "$CONTENTS/Resources/AppIcon.icns"
 rm -rf "$ICONSET"
 
-if [[ -d "$SCRIPT_DIR/Resources/PermissionGuides" ]]; then
-  ditto "$SCRIPT_DIR/Resources/PermissionGuides" \
-    "$CONTENTS/Resources/PermissionGuides"
-fi
-if [[ -d "$SCRIPT_DIR/Resources/buymeacoffee" ]]; then
-  ditto "$SCRIPT_DIR/Resources/buymeacoffee" \
-    "$CONTENTS/Resources/BuyMeACoffee"
-fi
-if [[ -d "$SCRIPT_DIR/Resources/Commerce" ]]; then
-  ditto "$SCRIPT_DIR/Resources/Commerce" \
-    "$CONTENTS/Resources/Commerce"
-fi
-if [[ -d "$SCRIPT_DIR/Resources/RemoteImages" ]]; then
-  ditto "$SCRIPT_DIR/Resources/RemoteImages" \
-    "$CONTENTS/Resources/RemoteImages"
-fi
+# Permission help is drawn with localized native controls; no inherited screenshots.
+# Only the image used by the native Chromecast mapping canvas is bundled.
+mkdir -p "$CONTENTS/Resources/RemoteImages"
+cp "$SCRIPT_DIR/Resources/RemoteImages/chromecast-front-and-volume-enhanced.png" \
+  "$CONTENTS/Resources/RemoteImages/chromecast-front-and-volume-enhanced.png"
+
+# Binary distributions must carry the inherited copyright and license notices.
+mkdir -p "$CONTENTS/Resources/Licenses"
+cp "$SCRIPT_DIR/LICENSE" "$CONTENTS/Resources/Licenses/LICENSE"
+cp "$SCRIPT_DIR/THIRD_PARTY_NOTICES.md" "$CONTENTS/Resources/Licenses/THIRD_PARTY_NOTICES.md"
+cp "$SCRIPT_DIR/docs/PROJECT_OWNERSHIP_AND_LICENSES.md" \
+  "$CONTENTS/Resources/Licenses/PROJECT_OWNERSHIP_AND_LICENSES.md"
+
 chmod 755 "$CONTENTS/MacOS/vRemote"
-# SwiftPM resource bundles may contain read-only privacy manifests. The app
-# bundle is a disposable build artifact, so make it owner-writable before
-# clearing inherited metadata and applying the final ad-hoc signature.
+# The app bundle is a disposable build artifact. Make it owner-writable
+# before clearing inherited metadata and applying the final ad-hoc signature.
 chmod -R u+w "$APP"
 xattr -cr "$APP"
 

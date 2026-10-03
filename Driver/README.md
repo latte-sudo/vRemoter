@@ -1,6 +1,9 @@
-# vRemote Driver HAL builder
+# Experimental audio driver HAL builder
 
-This is the reproducible driver builder used by vRemoter.
+This is the experimental binary-patching driver builder retained by this fork.
+Its existing `vRemoteDriver` / `vRemoteDr` technical identities are unchanged;
+a visible app-name change is not a driver migration or new driver ownership claim.
+It is not a verified reproducible source build or a cleared distribution pipeline.
 Doubao filters CoreAudio devices whose transport type is `virtual`, so the
 generated device uses a USB transport identity while remaining a user-space
 HAL plug-in.
@@ -25,3 +28,10 @@ that has the same identifiers and transport setting.
 `install-driver.sh` installs only the new side-by-side bundle and refuses to
 overwrite an existing copy. `uninstall-driver.sh` removes only that bundle.
 Both require administrator privileges.
+
+The script does not pin or verify the installed BlackHole version/hash. Before
+shipping a driver or PKG, resolve input provenance, corresponding source, GPL
+notices and the distribution license route. See the
+[ownership and license review](../docs/PROJECT_OWNERSHIP_AND_LICENSES.md#4-blackhole-驱动发布前必须单独处理).
+App-only `package-app.sh` does not build or install this driver. Neither this
+README nor a successful app build demonstrates driver installation acceptance.

@@ -25,9 +25,20 @@ final class DoubaoAudioStateMonitor {
         var isRecording: Bool { state == .active }
 
         var deviceSummary: String {
-            inputDeviceNames.isEmpty
-                ? "无"
-                : inputDeviceNames.joined(separator: "、")
+            guard !inputDeviceNames.isEmpty else { return L10n.tr("support.audio.device.none") }
+            return inputDeviceNames.enumerated().map { index, name in
+                guard name.isEmpty else { return name }
+                guard inputDeviceIDs.indices.contains(index) else { return L10n.tr("support.audio.device.unknown") }
+                return L10n.tr("support.audio.device.number", inputDeviceIDs[index])
+            }.joined(separator: L10n.tr("support.audio.device.separator"))
+        }
+
+        var diagnosticDeviceSummary: String {
+            guard !inputDeviceNames.isEmpty else { return "无" }
+            return inputDeviceNames.enumerated().map { index, name in
+                guard name.isEmpty else { return name }
+                return inputDeviceIDs.indices.contains(index) ? "设备 \(inputDeviceIDs[index])" : "未知设备"
+            }.joined(separator: "、")
         }
     }
 
@@ -91,6 +102,9 @@ final class DoubaoAudioStateMonitor {
     /// the key event reaches Doubao, so the returned value is the old state
     /// that the Option press is about to toggle.
     func snapshotNow() -> Snapshot {
+        // A bounded post-stop query must not leave listeners behind after the
+        // monitor has been stopped (for example during application shutdown).
+        defer { if !started { unbindProcessObject() } }
         refreshBindingIfNeeded()
         return readCurrentSnapshot()
     }
@@ -182,7 +196,7 @@ final class DoubaoAudioStateMonitor {
         print(
             "[DOUBAO-STATE] state=\(snapshot.state.rawValue) " +
             "pid=\(snapshot.pid.map(String.init) ?? "-") " +
-            "devices=\(snapshot.deviceSummary)"
+            "devices=\(snapshot.diagnosticDeviceSummary)"
         )
         if snapshot.isRecording,
            !snapshot.inputDeviceNames.contains(Self.targetDeviceName)
@@ -320,7 +334,7 @@ final class DoubaoAudioStateMonitor {
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
-        var value: CFString = "未知设备" as CFString
+        var value: CFString = "" as CFString
         var size = UInt32(MemoryLayout<CFString>.size)
         let status = withUnsafeMutablePointer(to: &value) { pointer in
             AudioObjectGetPropertyData(
@@ -332,7 +346,7 @@ final class DoubaoAudioStateMonitor {
                 pointer
             )
         }
-        return status == noErr ? value as String : "设备 \(deviceID)"
+        return status == noErr ? value as String : ""
     }
 
     private static func describe(_ status: OSStatus) -> String {

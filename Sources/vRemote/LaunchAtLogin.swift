@@ -27,7 +27,7 @@ enum LaunchAtLogin {
             throw NSError(
                 domain: "vRemote.LaunchAtLogin",
                 code: 1,
-                userInfo: [NSLocalizedDescriptionKey: "无法取得应用路径"]
+                userInfo: [NSLocalizedDescriptionKey: L10n.tr("support.login.appMissing")]
             )
         }
 
@@ -57,7 +57,7 @@ enum LaunchAtLogin {
             throw NSError(
                 domain: "vRemote.LaunchAtLogin",
                 code: Int(result),
-                userInfo: [NSLocalizedDescriptionKey: "无法注册登录启动项"]
+                userInfo: [NSLocalizedDescriptionKey: L10n.tr("support.login.failed")]
             )
         }
     }

@@ -1,4 +1,5 @@
-"NSBluetoothAlwaysUsageDescription" = "连接蓝牙语音遥控器并接收语音音频。";
-"NSBluetoothPeripheralUsageDescription" = "连接蓝牙语音遥控器并接收语音音频。";
-"NSInputMonitoringUsageDescription" = "识别蓝牙遥控器语音键并阻止原生搜索动作干扰语音输入。";
-"NSMicrophoneUsageDescription" = "同时使用蓝牙遥控器和 MacBook 麦克风进行语音输入。";
+"CFBundleDisplayName" = "遥控器语音工具";
+"CFBundleName" = "遥控器语音工具";
+"NSBluetoothAlwaysUsageDescription" = "连接蓝牙语音遥控器并接收声音。";
+"NSBluetoothPeripheralUsageDescription" = "连接蓝牙语音遥控器并接收声音。";
+"NSInputMonitoringUsageDescription" = "接收 Chromecast 遥控器按键和你选择的键盘语音快捷键。";

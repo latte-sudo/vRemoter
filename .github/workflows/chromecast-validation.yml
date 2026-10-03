@@ -1,0 +1,55 @@
+name: Chromecast validation
+on:
+  push:
+    branches: [feat/chromecast-first-run]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  build-and-test:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile macOS application
+        run: swift build
+      - name: Localization resource and source contracts
+        run: python3 Tools/check-localization.py
+      - name: Localization runtime regressions
+        run: bash Tools/test-localization.sh
+      - name: Verify SwiftPM localization resources
+        run: swift run vRemote --localization-self-test
+      - name: Protocol regression tests
+        run: zsh run-self-tests.sh
+      - name: Chromecast model and voice regressions
+        env:
+          VREMOTE_VOICE_TEST_REPETITIONS: "20"
+        run: bash Tools/test-chromecast-models.sh
+      - name: Mapping geometry contracts
+        run: python3 Tools/check-mapping-layout.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Offline prototype regressions
+        run: node docs/prototypes/test-vremoter-onboarding-settings.cjs
+      - name: Native interface source contracts
+        run: python3 Tools/check-native-interface.py
+      - name: Permission follow-along source contracts
+        run: python3 Tools/check-permission-guidance.py
+      - name: Runtime cleanup contracts
+        run: python3 Tools/check-runtime-cleanup.py
+      - name: Branding, provenance and compatibility contracts
+        run: python3 Tools/check-branding.py
+      - name: Reproduce temporary neutral app icon
+        run: python3 Tools/generate-placeholder-icon.py --check
+      - name: Historical prototype regressions
+        run: node docs/prototypes/test-vremoter-onboarding-settings.cjs docs/prototypes/vremoter-onboarding-settings.html
+      - name: Isolated packaging regression
+        run: python3 Tools/test-package-contents.py
+      - name: Build development app bundle
+        run: zsh package-app.sh
+      - name: Verify bundled notices and resources
+        run: python3 Tools/check-app-bundle.py dist/build/vRemote.app
+      - name: Verify running packaged localization resources
+        run: dist/build/vRemote.app/Contents/MacOS/vRemote --localization-self-test
+      - name: Whitespace check
+        run: git diff --check
