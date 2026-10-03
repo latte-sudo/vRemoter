@@ -42,6 +42,27 @@ for contract in ['.frame(width: ConsoleDesignTokens.sidebarWidth, alignment: .le
                  'Text(steps[index])', '.fixedSize(horizontal: false, vertical: true)']:
     check(contract in sidebar, 'left-aligned accessible sidebar: ' + contract)
 check('Label(item.title, systemImage: item.symbol)' not in sidebar, 'sidebar layout remains explicit')
+# Window chrome reserves title-bar space exactly once: AppKit supplies the safe
+# area; content adds only a compact 52-point header and 12-point sidebar inset.
+header = view[view.index('private var header:'):view.index('@ViewBuilder private var onboardingContent:')]
+check('static let headerHeight: CGFloat = 52' in tokens, 'compact native header token')
+check('.frame(height: ConsoleDesignTokens.headerHeight)' in header, 'native header uses shared compact height')
+check('.padding(.top,' not in header, 'no duplicate manual title-bar top reservation')
+check('.padding(.top, 12)' in sidebar and '.padding(.top, 45)' not in sidebar, 'sidebar removes duplicate title-bar gap')
+check('languagePicker' not in sidebar, 'language setting removed from sidebar')
+settings = view[view.index('private var settings:'):view.index('private var diagnostics:')]
+basic = settings[settings.index('console.settings.basic'):settings.index('console.settings.startup')]
+check(basic.count('ConsoleCard {') == 1, 'language and appearance share one Basic Settings card')
+for contract in ['languagePicker.labelsHidden()', 'ConsoleAppearancePicker(selection: $appearance)', 'ConsoleAppearanceSummary(selection: appearance)', 'language.help']:
+    check(contract in basic, 'basic settings retains ' + contract)
+for section in ['console.settings.startup', 'console.backup.title', 'console.settings.restore']:
+    check(section in settings, 'preserves separate settings section ' + section)
+summary = tokens[tokens.index('struct ConsoleAppearanceSummary:'):]
+for contract in ['@Environment(\\.colorScheme)', 'selection.resolved(isSystemDark: colorScheme == .dark)', 'ConsoleDesignTokens.window', 'ConsoleDesignTokens.sidebar', 'ConsoleDesignTokens.surface', 'ConsoleDesignTokens.accent', '.accessibilityHidden(true)']:
+    check(contract in summary, 'live appearance colors and accessibility: ' + contract)
+controller = (root / 'Sources/vRemote/AppAppearanceController.swift').read_text()
+check('case .system: NSApp.appearance = nil' in controller, 'System keeps automatic macOS appearance propagation')
+check('ignoresSafeArea' not in view, 'native controls retain AppKit title-bar clearance')
 indicator = (root / 'Sources/vRemote/MenuBarVoiceReception.swift').read_text()
 for contract in ['phase == .opening || phase == .recording', 'streaming &&',
                  'if !acceptsAudio { lastPacketAt = nil }', 'age < Self.packetFreshness']:

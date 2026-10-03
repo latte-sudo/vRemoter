@@ -6,6 +6,11 @@ enum AppAppearance: String, CaseIterable {
 
     static let key = "vRemoter.appAppearance"
 
+    /// Resolve only for presentation. Keep `.system` stored so later OS changes apply.
+    func resolved(isSystemDark: Bool) -> AppAppearance {
+        self == .system ? (isSystemDark ? .dark : .light) : self
+    }
+
     static func selected(in defaults: UserDefaults = .standard) -> AppAppearance {
         guard let raw = defaults.string(forKey: key), let value = AppAppearance(rawValue: raw) else {
             return .system

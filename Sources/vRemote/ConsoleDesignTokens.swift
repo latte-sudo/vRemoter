@@ -5,7 +5,8 @@ import SwiftUI
 /// Keep the HTML reference developer-only; these are shared by all app pages.
 enum ConsoleDesignTokens {
     static let sidebarWidth: CGFloat = 219
-    static let headerHeight: CGFloat = 65
+    // Native title-bar clearance comes from the hosting view safe area.
+    static let headerHeight: CGFloat = 52
     static let pagePadding: CGFloat = 32
     static let cardRadius: CGFloat = 12
     static let controlRadius: CGFloat = 8
@@ -104,5 +105,35 @@ struct ConsoleAppearancePicker: View {
     }
     private func title(_ appearance: AppAppearance) -> String {
         switch appearance { case .system: return L10n.tr("language.system"); case .light: return L10n.tr("appearance.light"); case .dark: return L10n.tr("appearance.dark") }
+    }
+}
+
+/// The swatches use the same semantic colors as the window, rather than a fixed
+/// split light/dark icon. SwiftUI refreshes `colorScheme` when macOS changes it.
+struct ConsoleAppearanceSummary: View {
+    let selection: AppAppearance
+    @ObservedObject private var languageStore = LanguageStore.shared
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var currentTitle: String {
+        L10n.tr(selection.resolved(isSystemDark: colorScheme == .dark) == .dark
+                ? "appearance.currentDark" : "appearance.currentLight")
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 3) {
+                swatch(ConsoleDesignTokens.window)
+                swatch(ConsoleDesignTokens.sidebar)
+                swatch(ConsoleDesignTokens.surface)
+                swatch(ConsoleDesignTokens.accent)
+            }.accessibilityHidden(true)
+            Text(currentTitle).font(.system(size: 11)).foregroundColor(ConsoleDesignTokens.secondaryText)
+        }.accessibilityElement(children: .combine)
+    }
+
+    private func swatch(_ color: Color) -> some View {
+        RoundedRectangle(cornerRadius: 3).fill(color).frame(width: 12, height: 12)
+            .overlay(RoundedRectangle(cornerRadius: 3).stroke(ConsoleDesignTokens.line, lineWidth: 1))
     }
 }

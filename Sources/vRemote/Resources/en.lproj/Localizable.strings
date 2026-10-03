@@ -1,4 +1,6 @@
 // App-owned interface text. Positional placeholders: {0}, {1}, …
+"appearance.currentDark" = "Currently dark";
+"appearance.currentLight" = "Currently light";
 "appearance.dark" = "Dark";
 "appearance.label" = "Appearance: {0}";
 "appearance.light" = "Light";
@@ -131,6 +133,7 @@
 "console.remote.nameSaved" = "Name saved. Save an empty name to restore the default.";
 "console.remote.nameTooLong" = "Use no more than {0} characters for the name.";
 "console.settings.appearance" = "Appearance";
+"console.settings.basic" = "Basic Settings";
 "console.settings.cancel" = "Restore earlier settings…";
 "console.settings.cancelHelp" = "Discard setup changes and restore your earlier settings";
 "console.settings.development" = "Development";

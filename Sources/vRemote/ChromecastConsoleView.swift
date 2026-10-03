@@ -146,7 +146,8 @@ struct ChromecastConsoleView: View {
                 Text(setup ? L10n.tr("console.sidebar.setupSubtitle") : L10n.tr("console.sidebar.settingsSubtitle"))
                     .font(.system(size: 11)).foregroundColor(ConsoleDesignTokens.secondaryText)
             }.frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 20).padding(.top, 45)
+                // NSHostingView already reserves the native title-bar safe area.
+                .padding(.horizontal, 20).padding(.top, 12)
             if setup {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(steps.indices, id: \.self) { index in
@@ -201,7 +202,6 @@ struct ChromecastConsoleView: View {
                 }.padding(.horizontal, 12)
             }
             Spacer(minLength: 20)
-            languagePicker.padding(.horizontal, 20)
             VStack(alignment: .leading, spacing: 10) {
                 Label(model.remoteDisplayName, systemImage: "appletvremote.gen1")
                     .font(.system(size: 12, weight: .medium)).lineLimit(2).help(model.remoteDisplayName)
@@ -236,7 +236,7 @@ struct ChromecastConsoleView: View {
             Text(L10n.tr("console.header.breadcrumb", setup ? L10n.tr("console.header.firstUse") : page.title)).font(.system(size: 12)).foregroundColor(ConsoleDesignTokens.secondaryText)
             Spacer()
             ChromecastGlobalVoiceHeader(model: model)
-        }.padding(.horizontal, 24).padding(.top, 18).frame(height: 83)
+        }.padding(.horizontal, 24).frame(height: ConsoleDesignTokens.headerHeight)
     }
 
     @ViewBuilder private var onboardingContent: some View {
@@ -684,18 +684,31 @@ struct ChromecastConsoleView: View {
 
     private var settings: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text(L10n.tr("language.title")).font(.headline)
+            Text(L10n.tr("console.settings.basic")).font(.headline)
             ConsoleCard {
-                VStack(alignment: .leading, spacing: 8) {
-                    languagePicker
-                    Text(L10n.tr("language.help")).font(.caption).foregroundColor(ConsoleDesignTokens.secondaryText)
-                }
-            }
-            Text(L10n.tr("console.settings.appearance")).font(.headline)
-            ConsoleCard {
-                HStack {
-                    VStack(alignment: .leading, spacing: 5) { Text(L10n.tr("console.settings.theme")).fontWeight(.medium); Text(L10n.tr("console.settings.themeHelp")).font(.caption).foregroundColor(ConsoleDesignTokens.secondaryText) }
-                    Spacer(); ConsoleAppearancePicker(selection: $appearance)
+                VStack(alignment: .leading, spacing: 18) {
+                    HStack(spacing: 24) {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(L10n.tr("language.title")).fontWeight(.medium)
+                            Text(L10n.tr("language.help")).font(.caption).foregroundColor(ConsoleDesignTokens.secondaryText)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: 0)
+                        languagePicker.labelsHidden().frame(width: 252)
+                    }
+                    Divider()
+                    HStack(spacing: 24) {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(L10n.tr("console.settings.theme")).fontWeight(.medium)
+                            Text(L10n.tr("console.settings.themeHelp")).font(.caption).foregroundColor(ConsoleDesignTokens.secondaryText)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: 0)
+                        VStack(alignment: .trailing, spacing: 8) {
+                            ConsoleAppearancePicker(selection: $appearance)
+                            ConsoleAppearanceSummary(selection: appearance)
+                        }
+                    }
                 }
             }
             Text(L10n.tr("console.settings.startup")).font(.headline)

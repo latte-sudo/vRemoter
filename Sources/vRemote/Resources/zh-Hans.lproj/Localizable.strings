@@ -1,4 +1,6 @@
 // App-owned interface text. Positional placeholders: {0}, {1}, …
+"appearance.currentDark" = "当前深色";
+"appearance.currentLight" = "当前浅色";
 "appearance.dark" = "深色";
 "appearance.label" = "外观：{0}";
 "appearance.light" = "浅色";
@@ -131,6 +133,7 @@
 "console.remote.nameSaved" = "名称已保存。留空保存可恢复默认名称。";
 "console.remote.nameTooLong" = "名称最多 {0} 个字符，请缩短后保存。";
 "console.settings.appearance" = "外观";
+"console.settings.basic" = "基本设置";
 "console.settings.cancel" = "恢复原设置…";
 "console.settings.cancelHelp" = "放弃本次引导，恢复开始前的设置";
 "console.settings.development" = "开发版";

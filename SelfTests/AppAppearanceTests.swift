@@ -13,6 +13,13 @@ struct AppAppearanceTests {
             precondition(AppAppearance.selected(in: UserDefaults(suiteName: name)!) == value, "persists across readers")
             precondition(defaults.string(forKey: AppAppearance.key) == value.rawValue)
         }
+        AppAppearance.set(.system, in: defaults)
+        for isSystemDark in [false, true, false, true] {
+            precondition(AppAppearance.system.resolved(isSystemDark: isSystemDark) == (isSystemDark ? .dark : .light))
+            precondition(AppAppearance.light.resolved(isSystemDark: isSystemDark) == .light, "explicit light ignores OS changes")
+            precondition(AppAppearance.dark.resolved(isSystemDark: isSystemDark) == .dark, "explicit dark ignores OS changes")
+            precondition(AppAppearance.selected(in: defaults) == .system, "display resolution never replaces System preference")
+        }
         let invalidValues: [Any] = ["unknown", "", 42, Data()]
         for invalid in invalidValues {
             defaults.set(invalid, forKey: AppAppearance.key)
@@ -21,6 +28,6 @@ struct AppAppearanceTests {
         AppAppearance.set(.dark, in: defaults)
         defaults.removeObject(forKey: AppAppearance.key)
         precondition(AppAppearance.selected(in: defaults) == .system, "reset removes override")
-        print("PASS: appearance default, upgrade, persistence, all modes, invalid values and reset")
+        print("PASS: appearance default, upgrade, persistence, live System resolution, explicit overrides, invalid values and reset")
     }
 }
