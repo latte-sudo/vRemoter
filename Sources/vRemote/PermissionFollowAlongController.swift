@@ -72,7 +72,12 @@ final class PermissionFollowAlongController {
         }
         terminationObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification, object: nil, queue: .main
-        ) { [weak self] _ in Task { @MainActor in self?.stop() } }
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard self?.generation == currentGeneration else { return }
+                self?.stop()
+            }
+        }
         let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in self?.tick(ifGeneration: currentGeneration) }
         }

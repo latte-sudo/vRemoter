@@ -52,4 +52,10 @@ notices = (root / 'THIRD_PARTY_NOTICES.md').read_text()
 for required in ['1b6c95cef032c15ada8c60dc1bdeb21a316ff353', 'Copyright (c) 2026 Leo', 'Copyright (c) 2026 The Maka Authors']:
     check(required in notices, 'upstream source/license notice missing: ' + required)
 check('.macOS(.v12)' in (root / 'Package.swift').read_text(), 'minimum OS unexpectedly changed')
+tasks = re.findall(r'Task\s*\{\s*@MainActor([^\n]*)', controller)
+check(tasks and all('[weak self]' in capture for capture in tasks),
+      'nested actor tasks must recapture self instead of sharing a mutable weak capture')
+termination = controller.split('terminationObserver = NotificationCenter.default.addObserver(', 1)[1].split('let timer =', 1)[0]
+check('self?.generation == currentGeneration' in termination,
+      'a queued termination callback must not stop a replacement session')
 print(f'PASS: {checks} permission follow-along source contracts (not native focus, permission or rendering acceptance)')
